@@ -33,7 +33,7 @@ class EndpointTest {
                 "api/v2/database/list", StubHttpClient.Route.ok(
                         "{\"databases\": [{\"base\": \"bogon_ip\", \"name\": \"Bogon IP\","
                                 + " \"summary\": \"non-routable space\", \"standing\": \"licensed\","
-                                + " \"license_type\": \"internal\", \"starts\": null,"
+                                + " \"license_type\": \"standard\", \"starts\": null,"
                                 + " \"expires\": null, \"versions\": [{\"id\": \"bogon_ip_v1\","
                                 + " \"version\": 1, \"summary\": \"v1\","
                                 + " \"formats\": [\"csvgz\", \"mmdb\"]}]}]}"),

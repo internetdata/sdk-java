@@ -247,7 +247,7 @@ class ConformanceTest {
                     .append(", \"summary\": \"a family\"")
                     .append(", \"standing\": \"").append(standings[i]).append("\"")
                     .append(", \"license_type\": ")
-                    .append("licensed".equals(standings[i]) ? "\"internal\"" : "null")
+                    .append("licensed".equals(standings[i]) ? "\"standard\"" : "null")
                     .append(", \"starts\": null, \"expires\": null")
                     .append(", \"versions\": [{\"id\": \"").append(bases[i]).append("_v1\"")
                     .append(", \"version\": 1, \"summary\": \"v1\"")
