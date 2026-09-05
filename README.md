@@ -43,7 +43,7 @@ Everything the API offers hangs off `client.database()`, which is where the sibl
 import io.internetdata.model.Database;
 
 for (Database family : client.database().list()) {
-    System.out.println(family.getBase() + " " + family.getStanding() + " " + family.getRedistribution());
+    System.out.println(family.getBase() + " " + family.getStanding() + " " + family.getLicenseType());
     family.getVersions().forEach(v -> System.out.println("  " + v.getId() + " " + v.getFormats()));
 }
 ```

@@ -111,10 +111,10 @@ class ConformanceTest {
     }
 
     @Test
-    void theRedistributionTermsAreExactlyTheOnesTheCorpusNames() {
-        assertEquals(strings(data.get("redistribution")),
-                Stream.of(Database.RedistributionEnum.values())
-                        .map(Database.RedistributionEnum::getValue).toList());
+    void theLicenseTypesAreExactlyTheOnesTheCorpusNames() {
+        assertEquals(strings(data.get("license_type")),
+                Stream.of(Database.LicenseTypeEnum.values())
+                        .map(Database.LicenseTypeEnum::getValue).toList());
     }
 
     /**
@@ -246,7 +246,7 @@ class ConformanceTest {
                     .append(", \"name\": \"Family ").append(i).append("\"")
                     .append(", \"summary\": \"a family\"")
                     .append(", \"standing\": \"").append(standings[i]).append("\"")
-                    .append(", \"redistribution\": ")
+                    .append(", \"license_type\": ")
                     .append("licensed".equals(standings[i]) ? "\"internal\"" : "null")
                     .append(", \"starts\": null, \"expires\": null")
                     .append(", \"versions\": [{\"id\": \"").append(bases[i]).append("_v1\"")

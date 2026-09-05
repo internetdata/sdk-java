@@ -91,8 +91,8 @@ class DatabaseTest {
             (family.getStanding() == Database.StandingEnum.LICENSED ? licensed : visible)
                     .add(family.getBase());
             if (family.getStanding() != Database.StandingEnum.LICENSED) {
-                assertNull(family.getRedistribution(), family.getBase()
-                        + " is not licensed but carries a redistribution term");
+                assertNull(family.getLicenseType(), family.getBase()
+                        + " is not licensed but carries a license_type term");
             }
         }
 

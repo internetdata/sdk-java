@@ -33,7 +33,7 @@ class EndpointTest {
                 "api/v2/database/list", StubHttpClient.Route.ok(
                         "{\"databases\": [{\"base\": \"bogon_ip\", \"name\": \"Bogon IP\","
                                 + " \"summary\": \"non-routable space\", \"standing\": \"licensed\","
-                                + " \"redistribution\": \"internal\", \"starts\": null,"
+                                + " \"license_type\": \"internal\", \"starts\": null,"
                                 + " \"expires\": null, \"versions\": [{\"id\": \"bogon_ip_v1\","
                                 + " \"version\": 1, \"summary\": \"v1\","
                                 + " \"formats\": [\"csvgz\", \"mmdb\"]}]}]}"),
@@ -78,13 +78,13 @@ class EndpointTest {
         StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
                 StubHttpClient.Route.ok("{\"databases\": [{\"base\": \"hosting_ip\","
                         + " \"name\": \"Hosting IP\", \"summary\": \"s\","
-                        + " \"standing\": \"unlicensed\", \"redistribution\": null,"
+                        + " \"standing\": \"unlicensed\", \"license_type\": null,"
                         + " \"starts\": null, \"expires\": null, \"versions\": []}]}")));
 
         Database family = client(http).database().list().get(0);
 
         assertEquals(Database.StandingEnum.UNLICENSED, family.getStanding());
-        assertNull(family.getRedistribution(), "no license means no redistribution term");
+        assertNull(family.getLicenseType(), "no license means no license_type term");
         assertNull(family.getExpires());
         assertTrue(family.getVersions().isEmpty());
     }
