@@ -50,7 +50,7 @@ for (Database family : client.database().list()) {
 
 A license covers a database *family* (`bogon_ip`), while a download names a *version* (`bogon_ip_v1`), so the ids every other method takes come from `getVersions()`.
 
-`getStanding()` is `LICENSED` for a live grant, `EXPIRED` for one whose term has ended, and `UNLICENSED` for a database published but never bought, which is how you discover what else exists. Note that this listing is your organization's view rather than a global catalog: a database commissioned for a single customer is absent from everyone else's listing rather than shown as unlicensed. The server decides what you see, so treat the answer as the catalog, and do not cache one key's listing for another.
+`getStanding()` is `LICENSED` for a live grant, `EXPIRED` for one whose term has ended, and `UNLICENSED` for a database published but never bought, which is how you discover what else exists.
 
 ### What is inside one
 
