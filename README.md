@@ -1,4 +1,4 @@
-# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="24"/>](https://internetdata.io/) InternetData Java Client Library
+# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" height="28"/>](https://internetdata.io/) InternetData Java Client Library
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.internetdata/internetdata.svg)](https://central.sonatype.com/artifact/io.internetdata/internetdata)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
