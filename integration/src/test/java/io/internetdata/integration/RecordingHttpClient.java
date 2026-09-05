@@ -70,9 +70,12 @@ final class RecordingHttpClient extends HttpClient {
 
     private void note(HttpRequest request) {
         URI uri = request.uri();
-        boolean carried = uri.toString().contains(key);
+        // An empty key is a substring of everything, so without this guard a keyless run would
+        // report that every request carried it, which is the one answer that must never be wrong.
+        boolean carried = !key.isEmpty() && uri.toString().contains(key);
         for (List<String> values : request.headers().map().values()) {
-            carried = carried || values.stream().anyMatch(value -> value.contains(key));
+            carried = carried
+                    || (!key.isEmpty() && values.stream().anyMatch(value -> value.contains(key)));
         }
         facts.add(new Fact(uri.getHost(), uri.getPath(), carried));
     }

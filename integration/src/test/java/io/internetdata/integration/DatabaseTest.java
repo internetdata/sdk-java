@@ -102,6 +102,15 @@ class DatabaseTest {
                         + "and standing has nothing to discriminate");
         System.out.println("licensed: " + String.join(", ", licensed));
         System.out.println("visible but unlicensed: " + visible.size() + " families");
+
+        // Everything above is vacuous unless the key reached the wire. The client builds happily
+        // without one and then sends no Authorization header at all, which is exactly what an
+        // unset CI secret produces, so the suite is where that has to be caught.
+        List<RecordingHttpClient.Fact> toApi = Staging.probe().recorder().facts().stream()
+                .filter(fact -> fact.host().equals(Staging.HOST)).toList();
+        assertFalse(toApi.isEmpty(), "no request reached the staging API");
+        toApi.forEach(fact ->
+                assertTrue(fact.carriedKey(), "the request to " + fact.path() + " carried no key"));
     }
 
     /**

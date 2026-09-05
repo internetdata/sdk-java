@@ -18,9 +18,10 @@ import javax.net.ssl.SSLParameters;
  * <p>Build one with {@link #builder()} and keep it: it owns a connection pool, which is wasted if
  * it is rebuilt per request. It is thread safe.
  *
- * <p>Everything the API offers hangs off {@link #database()}. Every one of those calls needs an API
- * key carrying the {@code db.download} scope, so there is no anonymous tier and a client cannot be
- * built without a key.
+ * <p>Everything the API offers hangs off {@link #database()}. Every database published today is
+ * licensed, so those calls want an API key carrying the {@code db.download} scope; the key is
+ * optional nonetheless, and a client built without one sends no {@code Authorization} header at
+ * all. What this API serves without a licence is a product decision, not the client's to refuse.
  */
 public final class InternetData {
     public static final String DEFAULT_BASE_URL = "https://internetdata.io";
@@ -32,9 +33,12 @@ public final class InternetData {
         ApiClient client = new ApiClient(new FixedHttpClientBuilder(http),
                 ApiClient.createDefaultObjectMapper(), b.baseUrl);
         client.setReadTimeout(b.requestTimeout);
-        // The `native` generator emits no auth plumbing at all - it ignores the spec's
-        // securitySchemes - so the key goes on by hand.
-        client.setRequestInterceptor(rb -> rb.header("Authorization", "Bearer " + b.apiKey));
+        if (b.apiKey != null && !b.apiKey.isEmpty()) {
+            // The `native` generator emits no auth plumbing at all - it ignores the spec's
+            // securitySchemes - so the key goes on by hand. Skipped entirely without one:
+            // `Authorization: Bearer ` with nothing after it reads as a wrong key, not none.
+            client.setRequestInterceptor(rb -> rb.header("Authorization", "Bearer " + b.apiKey));
+        }
 
         this.database = new DatabaseApi(client, b.retries);
     }
@@ -46,6 +50,11 @@ public final class InternetData {
     /** A client with every default, for the given API key. */
     public static InternetData create(String apiKey) {
         return builder().apiKey(apiKey).build();
+    }
+
+    /** A client with every default and no key, which reaches only what needs no licence. */
+    public static InternetData create() {
+        return builder().build();
     }
 
     /**
@@ -67,7 +76,7 @@ public final class InternetData {
                 .build();
     }
 
-    /** Settings for an {@link InternetData} client. Everything but the key has a working default. */
+    /** Settings for an {@link InternetData} client. Every one of them has a working default. */
     public static final class Builder {
         private String apiKey;
         private String baseUrl = DEFAULT_BASE_URL;
@@ -80,11 +89,11 @@ public final class InternetData {
         /**
          * Your API key, from the console, carrying the {@code db.download} scope.
          *
-         * <p>There is no anonymous tier: every endpoint here is behind a contract, so a client
-         * cannot be built without one.
+         * <p>Leave it unset to send no {@code Authorization} header at all, which reaches only
+         * what the API serves without a licence.
          */
         public Builder apiKey(String apiKey) {
-            this.apiKey = Objects.requireNonNull(apiKey, "apiKey");
+            this.apiKey = apiKey;
             return this;
         }
 
@@ -125,10 +134,6 @@ public final class InternetData {
         }
 
         public InternetData build() {
-            if (apiKey == null || apiKey.isBlank()) {
-                throw new IllegalStateException(
-                        "an API key is required; every InternetData database endpoint is licensed");
-            }
             return new InternetData(this);
         }
     }

@@ -1,8 +1,8 @@
 package io.internetdata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,18 +13,22 @@ import java.util.Map;
 /** The builder, and the settings a caller is most likely to reach for. */
 class ClientTest {
     /**
-     * There is no anonymous tier here, so a missing key is a construction error rather than a 401
-     * on the first call. A caller whose environment variable is unset finds out at the line that is
-     * wrong.
+     * The key is optional because what this API serves without a licence is a product decision, and
+     * a builder that could not finish without one would have to change shape to follow it. What
+     * must never go out is {@code Authorization: Bearer } with nothing after it, which reads as a
+     * wrong key rather than as none.
      */
     @Test
-    void aClientCannotBeBuiltWithoutAKey() {
-        IllegalStateException err = assertThrows(IllegalStateException.class,
-                () -> InternetData.builder().build());
-        assertTrue(err.getMessage().contains("API key"));
+    void aClientBuildsWithNoKeyAndSendsNoAuthorizationHeader() {
+        StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
+                StubHttpClient.Route.ok("{\"databases\": []}")));
 
-        assertThrows(IllegalStateException.class, () -> InternetData.builder().apiKey("  ").build(),
-                "a blank key authenticates as no key at all");
+        InternetData.builder().httpClient(http).build().database().list();
+        InternetData.builder().httpClient(http).apiKey("").build().database().list();
+
+        assertEquals(2, http.calls.size());
+        assertNull(http.authorizations.get(0), "an unset key still sent an Authorization header");
+        assertNull(http.authorizations.get(1), "an empty key still sent an Authorization header");
     }
 
     @Test
@@ -42,7 +46,6 @@ class ClientTest {
     void theBuilderRefusesSettingsThatCannotWork() {
         assertThrows(IllegalArgumentException.class, () -> InternetData.builder().retries(-1));
         assertThrows(NullPointerException.class, () -> InternetData.builder().baseUrl(null));
-        assertThrows(NullPointerException.class, () -> InternetData.builder().apiKey(null));
         assertThrows(NullPointerException.class, () -> InternetData.builder().requestTimeout(null));
         assertThrows(NullPointerException.class, () -> InternetData.builder().httpClient(null));
     }
