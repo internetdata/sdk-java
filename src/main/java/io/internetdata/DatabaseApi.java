@@ -91,7 +91,7 @@ public final class DatabaseApi {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(format, "format");
         return Wire.execute(retries,
-                () -> api.databaseChecksumV2(id, format.wireValue()).getChecksums());
+                () -> api.databaseChecksumV2(id, io.internetdata.model.DatabaseFormat.fromValue(format.wireValue())).getChecksums());
     }
 
     /** Your organization's recent download attempts, newest first, refusals included. */
@@ -117,7 +117,7 @@ public final class DatabaseApi {
         Objects.requireNonNull(format, "format");
         return Wire.execute(retries, () -> {
             try {
-                api.downloadDatabaseV2WithHttpInfo(id, format.wireValue());
+                api.downloadDatabaseV2WithHttpInfo(id, io.internetdata.model.DatabaseFormat.fromValue(format.wireValue()));
             } catch (ApiException e) {
                 // The generated method treats any non-2xx as a failure, so the SUCCESS case for
                 // this endpoint arrives as an exception carrying the Location header.

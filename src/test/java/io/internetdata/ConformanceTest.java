@@ -107,7 +107,7 @@ class ConformanceTest {
     @Test
     void theStandingsAreExactlyTheOnesTheCorpusNames() {
         assertEquals(strings(data.get("standings")),
-                Stream.of(Database.StandingEnum.values()).map(Database.StandingEnum::getValue).toList());
+                Stream.of(io.internetdata.model.Standing.values()).map(io.internetdata.model.Standing::getValue).toList());
     }
 
     @Test
@@ -126,8 +126,8 @@ class ConformanceTest {
         List<String> expected = strings(data.get("formats"));
         assertEquals(expected,
                 Stream.of(DatabaseFormat.values()).map(DatabaseFormat::wireValue).toList());
-        assertEquals(expected, Stream.of(DatabaseVersion.FormatsEnum.values())
-                .map(DatabaseVersion.FormatsEnum::getValue).toList());
+        assertEquals(expected, Stream.of(io.internetdata.model.DatabaseFormat.values())
+                .map(io.internetdata.model.DatabaseFormat::getValue).toList());
     }
 
     /**
@@ -174,7 +174,7 @@ class ConformanceTest {
         assertEquals(List.of("family_a", "family_b", "family_c"),
                 got.stream().map(Database::getBase).toList(),
                 "the listing was reordered or filtered on the way through");
-        assertEquals(Database.StandingEnum.UNLICENSED, got.get(2).getStanding(),
+        assertEquals(io.internetdata.model.Standing.UNLICENSED, got.get(2).getStanding(),
                 "an unlicensed family must survive: standing is the discovery surface");
 
         // An empty listing stays empty. A client that fell back to a built-in catalog would show a

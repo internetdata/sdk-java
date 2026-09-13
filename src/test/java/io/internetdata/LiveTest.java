@@ -45,7 +45,7 @@ class LiveTest {
         }
 
         Database licensed = families.stream()
-                .filter(f -> f.getStanding() == Database.StandingEnum.LICENSED)
+                .filter(f -> f.getStanding() == io.internetdata.model.Standing.LICENSED)
                 .filter(f -> !f.getVersions().isEmpty())
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("this key licenses nothing to inspect"));

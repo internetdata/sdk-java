@@ -45,6 +45,9 @@ INLINE="${INLINE},databaseChecksumV2_200_response=DatabaseChecksumsResponse"
 MODELS="Database:DatabaseVersion:DatabaseMetadata:DatabaseMetadataColumn"
 MODELS="${MODELS}:DbChecksums:Download:Error"
 MODELS="${MODELS}:DatabaseList:DownloadList:DatabaseChecksumsResponse"
+# The two named enums. A schema reachable from a selected model is NOT pulled in
+# automatically; leave them out and the build references a class nobody wrote.
+MODELS="${MODELS}:DatabaseFormat:Standing"
 
 # openApiNullable=false keeps org.openapitools:jackson-databind-nullable off a
 # consumer's classpath. Every `nullable: true` field here is one where null and

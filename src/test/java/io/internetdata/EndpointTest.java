@@ -54,7 +54,7 @@ class EndpointTest {
         List<Database> listing = client.database().list();
         assertEquals(1, listing.size());
         assertEquals("bogon_ip", listing.get(0).getBase());
-        assertEquals(Database.StandingEnum.LICENSED, listing.get(0).getStanding());
+        assertEquals(io.internetdata.model.Standing.LICENSED, listing.get(0).getStanding());
         assertEquals("bogon_ip_v1", listing.get(0).getVersions().get(0).getId());
         assertEquals(2, listing.get(0).getVersions().get(0).getFormats().size());
 
@@ -83,7 +83,7 @@ class EndpointTest {
 
         Database family = client(http).database().list().get(0);
 
-        assertEquals(Database.StandingEnum.UNLICENSED, family.getStanding());
+        assertEquals(io.internetdata.model.Standing.UNLICENSED, family.getStanding());
         assertNull(family.getLicenseType(), "no license means no license_type term");
         assertNull(family.getExpires());
         assertTrue(family.getVersions().isEmpty());
