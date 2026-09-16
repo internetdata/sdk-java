@@ -15,6 +15,7 @@ import io.internetdata.model.Database;
 import io.internetdata.model.DatabaseChecksums;
 import io.internetdata.model.DatabaseMetadata;
 import io.internetdata.model.Download;
+import io.internetdata.model.Standing;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,9 +89,9 @@ class DatabaseTest {
                 assertTrue(version.getVersion() > 0, version.getId() + " has no version number");
                 assertFalse(version.getFormats().isEmpty(), version.getId() + " carries no formats");
             }
-            (family.getStanding() == Database.StandingEnum.LICENSED ? licensed : visible)
+            (family.getStanding() == Standing.LICENSED ? licensed : visible)
                     .add(family.getBase());
-            if (family.getStanding() != Database.StandingEnum.LICENSED) {
+            if (family.getStanding() != Standing.LICENSED) {
                 assertNull(family.getLicenseType(), family.getBase()
                         + " is not licensed but carries a license_type term");
             }
@@ -214,7 +215,7 @@ class DatabaseTest {
     /** The first version id of a visible family this organization does not license. */
     private static Optional<String> unlicensedId() {
         return catalog().stream()
-                .filter(f -> f.getStanding() != Database.StandingEnum.LICENSED)
+                .filter(f -> f.getStanding() != Standing.LICENSED)
                 .filter(f -> !f.getVersions().isEmpty())
                 .map(f -> f.getVersions().get(0).getId())
                 .findFirst();
@@ -231,7 +232,7 @@ class DatabaseTest {
             return transfer;
         }
         Database family = catalog().stream()
-                .filter(f -> f.getStanding() == Database.StandingEnum.LICENSED)
+                .filter(f -> f.getStanding() == Standing.LICENSED)
                 .filter(f -> !f.getVersions().isEmpty())
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("this key licenses nothing to download"));
