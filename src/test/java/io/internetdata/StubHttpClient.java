@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.concurrent.Executor;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -56,15 +57,22 @@ final class StubHttpClient extends HttpClient {
     /** The {@code Authorization} header of each call, or null, positionally matching {@link #calls}. */
     final List<String> authorizations = Collections.synchronizedList(new ArrayList<>());
 
-    private final Map<String, Route> routes;
+    private final Function<String, Route> responder;
 
-    private StubHttpClient(Map<String, Route> routes) {
-        this.routes = new HashMap<>(routes);
+    private StubHttpClient(Function<String, Route> responder) {
+        this.responder = responder;
     }
 
     /** Answers the given paths, and rejects anything else the way the API would an unknown id. */
     static StubHttpClient of(Map<String, Route> routes) {
-        return new StubHttpClient(routes);
+        Map<String, Route> table = new HashMap<>(routes);
+        return new StubHttpClient(path -> table.getOrDefault(path,
+                new Route(404, "{\"rc\": \"UNKNOWN_DATASET\"}", Map.of())));
+    }
+
+    /** Answers each path with whatever {@code responder} returns for it at the time it is asked. */
+    static StubHttpClient responding(Function<String, Route> responder) {
+        return new StubHttpClient(responder);
     }
 
     @Override
@@ -75,8 +83,7 @@ final class StubHttpClient extends HttpClient {
         authorizations.add(request.headers().firstValue("Authorization").orElse(null));
 
         String path = uri.getPath();
-        Route route = routes.getOrDefault(path.startsWith("/") ? path.substring(1) : path,
-                new Route(404, "{\"rc\": \"UNKNOWN_DATASET\"}", Map.of()));
+        Route route = responder.apply(path.startsWith("/") ? path.substring(1) : path);
         Map<String, List<String>> headers = new HashMap<>();
         headers.put("content-type", List.of("application/json"));
         route.headers.forEach((k, v) -> headers.put(k.toLowerCase(Locale.ROOT), List.of(v)));
