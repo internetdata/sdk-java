@@ -29,7 +29,7 @@ public final class InternetData {
     private final DatabaseApi database;
 
     private InternetData(Builder b) {
-        HttpClient http = b.httpClient != null ? b.httpClient : defaultHttpClient();
+        HttpClient http = new DeadlineHttpClient(b.httpClient != null ? b.httpClient : defaultHttpClient());
         ApiClient client = new ApiClient(new FixedHttpClientBuilder(http),
                 ApiClient.createDefaultObjectMapper(), b.baseUrl);
         client.setReadTimeout(b.requestTimeout);
@@ -112,10 +112,12 @@ public final class InternetData {
         }
 
         /**
-         * How long one API call may take before it is abandoned. Default 30 seconds.
+         * How long one attempt at an API call may take, response body included, before it is
+         * abandoned as a retryable {@link ErrorKind#NETWORK} failure. Default 30 seconds.
          *
-         * <p>This does NOT bound a file transfer, which is unbounded on purpose: a multi-gigabyte
-         * download is a different kind of wait from a metadata request.
+         * <p>Per ATTEMPT, so a call that is retried can take longer in total. This does NOT bound a
+         * file transfer, which is unbounded on purpose: a multi-gigabyte download is a different
+         * kind of wait from a metadata request.
          */
         public Builder requestTimeout(Duration requestTimeout) {
             this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
@@ -126,7 +128,9 @@ public final class InternetData {
          * Use a specific {@link HttpClient}, for a proxy, a custom SSL context or a test double.
          *
          * <p>It must NOT follow redirects, or {@link DatabaseApi#downloadUrl} will fetch the whole
-         * database instead of returning its link.
+         * database instead of returning its link. API calls go through its {@code sendAsync}, which
+         * is how {@link #requestTimeout} holds even where the client itself ignores a request's
+         * timeout.
          */
         public Builder httpClient(HttpClient httpClient) {
             this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
