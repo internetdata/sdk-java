@@ -21,7 +21,7 @@ import javax.net.ssl.SSLParameters;
  * <p>Everything the API offers hangs off {@link #database()}. Every database published today is
  * licensed, so those calls want an API key carrying the {@code db.download} scope; the key is
  * optional nonetheless, and a client built without one sends no {@code Authorization} header at
- * all. What this API serves without a licence is a product decision, not the client's to refuse.
+ * all. What this API serves without a license is a product decision, not the client's to refuse.
  */
 public final class InternetData {
     public static final String DEFAULT_BASE_URL = "https://internetdata.io";
@@ -52,7 +52,7 @@ public final class InternetData {
         return builder().apiKey(apiKey).build();
     }
 
-    /** A client with every default and no key, which reaches only what needs no licence. */
+    /** A client with every default and no key, which reaches only what needs no license. */
     public static InternetData create() {
         return builder().build();
     }
@@ -90,7 +90,7 @@ public final class InternetData {
          * Your API key, from the console, carrying the {@code db.download} scope.
          *
          * <p>Leave it unset to send no {@code Authorization} header at all, which reaches only
-         * what the API serves without a licence.
+         * what the API serves without a license.
          */
         public Builder apiKey(String apiKey) {
             this.apiKey = apiKey;

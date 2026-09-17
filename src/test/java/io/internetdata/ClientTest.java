@@ -13,7 +13,7 @@ import java.util.Map;
 /** The builder, and the settings a caller is most likely to reach for. */
 class ClientTest {
     /**
-     * The key is optional because what this API serves without a licence is a product decision, and
+     * The key is optional because what this API serves without a license is a product decision, and
      * a builder that could not finish without one would have to change shape to follow it. What
      * must never go out is {@code Authorization: Bearer } with nothing after it, which reads as a
      * wrong key rather than as none.
