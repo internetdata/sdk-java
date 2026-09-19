@@ -97,8 +97,16 @@ public final class InternetData {
             return this;
         }
 
+        /**
+         * Where the API is served. Default {@value InternetData#DEFAULT_BASE_URL}.
+         *
+         * <p>A trailing slash is dropped. Every path this client appends begins with one, and a
+         * doubled slash is a different path to the server: production answers it with a redirect,
+         * which this client does not follow, so every call would fail.
+         */
         public Builder baseUrl(String baseUrl) {
-            this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
+            Objects.requireNonNull(baseUrl, "baseUrl");
+            this.baseUrl = baseUrl.replaceAll("/+$", "");
             return this;
         }
 
@@ -118,9 +126,24 @@ public final class InternetData {
          * <p>Per ATTEMPT, so a call that is retried can take longer in total. This does NOT bound a
          * file transfer, which is unbounded on purpose: a multi-gigabyte download is a different
          * kind of wait from a metadata request.
+         *
+         * @throws IllegalArgumentException for zero, a negative duration, or one too long to count
+         *     in nanoseconds (about 292 years). Accepted, each would fail EVERY call rather than
+         *     bound it: the JDK refuses a request timeout that is not positive, and the deadline
+         *     this client races is counted in nanoseconds.
          */
         public Builder requestTimeout(Duration requestTimeout) {
-            this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+            Objects.requireNonNull(requestTimeout, "requestTimeout");
+            if (requestTimeout.isZero() || requestTimeout.isNegative()) {
+                throw new IllegalArgumentException("requestTimeout must be positive");
+            }
+            try {
+                requestTimeout.toNanos();
+            } catch (ArithmeticException tooLong) {
+                throw new IllegalArgumentException(
+                        "requestTimeout is too long to count in nanoseconds", tooLong);
+            }
+            this.requestTimeout = requestTimeout;
             return this;
         }
 

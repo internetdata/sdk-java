@@ -88,8 +88,41 @@ class ConformanceTest {
                 assertTrue(err.retryAfter().isEmpty(),
                         name + ": a 429 with no Retry-After is a spent allowance, not a rate limit");
             }
-            assertEquals(1, http.calls.size(), name + ": a non-retryable failure was retried");
+            assertEquals(1, http.calls.size(), name + ": more than one request with retries off");
         }
+    }
+
+    /**
+     * Every refusal the corpus marks non-retryable is sent ONCE with retries ON.
+     *
+     * <p>The test above runs with retries off, where one request is guaranteed, so its count cannot
+     * tell a client that retries a refusal from one that does not. The unlisted 422 is the case that
+     * matters most: three of the first four VPNDetection SDKs let an unlisted 4xx fall through to a
+     * retryable {@code server_error}.
+     */
+    @Test
+    void aNonRetryableRefusalIsSentOnceWithRetriesOn() throws IOException {
+        int checked = 0;
+        for (JsonNode c : data.get("errors")) {
+            if (c.get("expect").get("retryable").asBoolean()) {
+                continue;
+            }
+            String name = c.get("name").asText();
+            Map<String, String> headers = new HashMap<>();
+            c.get("headers").fieldNames().forEachRemaining(
+                    h -> headers.put(h, c.get("headers").get(h).asText()));
+            StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/metadata",
+                    new StubHttpClient.Route(c.get("status").asInt(),
+                            MAPPER.writeValueAsString(c.get("body")), headers)));
+
+            InternetData client = clientOn(http).retries(2).build();
+            assertThrows(InternetDataException.class,
+                    () -> client.database().metadata("bogon_ip_v1"), name);
+
+            assertEquals(1, http.calls.size(), name + ": a non-retryable refusal was retried");
+            checked++;
+        }
+        assertTrue(checked > 0, "the corpus names no non-retryable refusal to check");
     }
 
     /** A retryable failure IS retried, so the fixture above is proving a difference, not a default. */
