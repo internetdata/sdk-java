@@ -17,8 +17,9 @@
 #      release there is no artifact to test, and a Java test naming a method that
 #      version does not have will not COMPILE, so this gate has to cover the whole
 #      suite rather than one test.
-#   2. The staging key is missing. Every endpoint here is licensed, so there is
-#      no unauthenticated half worth running; the whole suite skips.
+#   2. The staging key is missing. Every database endpoint here is licensed, so
+#      those tests skip from inside the suite, each with its reason; the OAuth
+#      checks carry no key and run regardless.
 
 set -euo pipefail
 
@@ -51,8 +52,8 @@ function main() {
         return 0
     fi
     if [ -z "${INTERNETDATA_STAGING_KEY:-}" ] ; then
-        skip "INTERNETDATA_STAGING_KEY is not set, and every endpoint here is licensed"
-        return 0
+        echo "==> INTERNETDATA_STAGING_KEY is not set: the database tests skip, the OAuth checks run"
+        notice "INTERNETDATA_STAGING_KEY is not set, so only the keyless OAuth checks run"
     fi
     echo "==> ${COORDS}@${range} matches published ${published// /, }"
 

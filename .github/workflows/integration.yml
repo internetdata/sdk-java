@@ -23,9 +23,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       # No dependency cache: the point is the resolve a stranger gets. The script
-      # skips with a reason when nothing is published yet, and again when the key
-      # is missing - every endpoint here is licensed, so there is no
-      # unauthenticated half worth running.
+      # skips with a reason when nothing is published yet. Without the key the
+      # database tests skip, since every database endpoint here is licensed, and
+      # the keyless OAuth checks still run.
       #
       # A secret that does not exist interpolates to an empty string, which the
       # runner treats as absent.

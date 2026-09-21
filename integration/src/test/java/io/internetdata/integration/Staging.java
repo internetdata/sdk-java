@@ -24,12 +24,12 @@ final class Staging {
     private static Probe probe;
 
     /**
-     * Why the suite cannot run, or null. Empty counts as absent: Actions interpolates a secret that
-     * does not exist to an empty string, and an empty key is sent as no key at all.
+     * Why the database tests cannot run, or null. Empty counts as absent: Actions interpolates a
+     * secret that does not exist to an empty string, and an empty key is sent as no key at all.
      */
     static String skipReason() {
         return key().isEmpty()
-                ? "INTERNETDATA_STAGING_KEY is not set; every endpoint here is licensed"
+                ? "INTERNETDATA_STAGING_KEY is not set; every database endpoint here is licensed"
                 : null;
     }
 
