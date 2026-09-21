@@ -18,15 +18,17 @@ import javax.net.ssl.SSLParameters;
  * <p>Build one with {@link #builder()} and keep it: it owns a connection pool, which is wasted if
  * it is rebuilt per request. It is thread safe.
  *
- * <p>Everything the API offers hangs off {@link #database()}. Every database published today is
- * licensed, so those calls want an API key carrying the {@code db.download} scope; the key is
- * optional nonetheless, and a client built without one sends no {@code Authorization} header at
- * all. What this API serves without a license is a product decision, not the client's to refuse.
+ * <p>The database endpoints hang off {@link #database()}, and the OAuth sign-in off {@link #oauth()}.
+ * Every database published today is licensed, so those calls want an API key carrying the
+ * {@code db.download} scope; the key is optional nonetheless, and a client built without one sends
+ * no {@code Authorization} header at all. What this API serves without a license is a product
+ * decision, not the client's to refuse.
  */
 public final class InternetData {
     public static final String DEFAULT_BASE_URL = "https://internetdata.io";
 
     private final DatabaseApi database;
+    private final OauthApi oauth;
 
     private InternetData(Builder b) {
         HttpClient http = new DeadlineHttpClient(b.httpClient != null ? b.httpClient : defaultHttpClient());
@@ -41,6 +43,8 @@ public final class InternetData {
         }
 
         this.database = new DatabaseApi(client, b.retries);
+        this.oauth = new OauthApi(http, client.getObjectMapper(), b.baseUrl, b.retries, b.requestTimeout,
+                OauthApi.SYSTEM);
     }
 
     public static Builder builder() {
@@ -66,6 +70,29 @@ public final class InternetData {
      */
     public DatabaseApi database() {
         return database;
+    }
+
+    /**
+     * Sign a person in with OAuth's device flow, so a program on their machine is handed one of their
+     * API keys instead of asking them to paste it. These requests never carry this client's key, so a
+     * client built without one serves them the same.
+     */
+    public OauthApi oauth() {
+        return oauth;
+    }
+
+    static Duration positive(Duration value, String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        try {
+            // The deadline DeadlineHttpClient races is counted in nanoseconds.
+            value.toNanos();
+        } catch (ArithmeticException tooLong) {
+            throw new IllegalArgumentException(name + " is too long to count in nanoseconds", tooLong);
+        }
+        return value;
     }
 
     private static HttpClient defaultHttpClient() {
@@ -127,23 +154,15 @@ public final class InternetData {
          * file transfer, which is unbounded on purpose: a multi-gigabyte download is a different
          * kind of wait from a metadata request.
          *
+         * <p>Overridable per OAuth call with {@link OauthOptions#requestTimeout}.
+         *
          * @throws IllegalArgumentException for zero, a negative duration, or one too long to count
          *     in nanoseconds (about 292 years). Accepted, each would fail EVERY call rather than
          *     bound it: the JDK refuses a request timeout that is not positive, and the deadline
-         *     this client races is counted in nanoseconds.
+         *     this client races is counted in nanoseconds. The same holds for the per-call one.
          */
         public Builder requestTimeout(Duration requestTimeout) {
-            Objects.requireNonNull(requestTimeout, "requestTimeout");
-            if (requestTimeout.isZero() || requestTimeout.isNegative()) {
-                throw new IllegalArgumentException("requestTimeout must be positive");
-            }
-            try {
-                requestTimeout.toNanos();
-            } catch (ArithmeticException tooLong) {
-                throw new IllegalArgumentException(
-                        "requestTimeout is too long to count in nanoseconds", tooLong);
-            }
-            this.requestTimeout = requestTimeout;
+            this.requestTimeout = positive(requestTimeout, "requestTimeout");
             return this;
         }
 

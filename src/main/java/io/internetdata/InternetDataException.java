@@ -12,8 +12,10 @@ import java.util.Optional;
  *
  * <p>{@link #getMessage()} is the API's own {@code rc} where it sent one, so a refusal says
  * {@code NOT_LICENSED} or {@code LICENSE_EXPIRED} rather than "403".
+ *
+ * <p>Not final, so that {@link OauthException} is one: a catch-all still catches an OAuth refusal.
  */
-public final class InternetDataException extends RuntimeException {
+public class InternetDataException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private final ErrorKind kind;

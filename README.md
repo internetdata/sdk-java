@@ -13,19 +13,19 @@ The library lists the IP databases your organization is licensed for, tells you 
 <dependency>
     <groupId>io.internetdata</groupId>
     <artifactId>internetdata</artifactId>
-    <version>2.0.2</version>
+    <version>2.1.0</version>
 </dependency>
 ```
 
 ```groovy
-implementation 'io.internetdata:internetdata:2.0.2'
+implementation 'io.internetdata:internetdata:2.1.0'
 ```
 
 Requires Java 17 or newer. HTTP is the JDK's own `java.net.http.HttpClient`, so there is no third-party HTTP stack to reconcile with yours.
 
 ## Usage
 
-Every endpoint is licensed, so you need an API key carrying the `db.download` scope. Create one in the console, then:
+Every database endpoint is licensed, so you need an API key carrying the `db.download` scope. Create one in the console, then:
 
 ```java
 import io.internetdata.InternetData;
@@ -35,7 +35,7 @@ InternetData client = InternetData.create(System.getenv("INTERNETDATA_API_KEY"))
 
 Build the client once and keep it. It owns a connection pool, and it is thread safe.
 
-Everything the API offers hangs off `client.database()`, which is where the sibling VPNDetection library keeps the same seven calls.
+The database calls hang off `client.database()`, which is where the sibling VPNDetection library keeps the same seven.
 
 ### What you can see
 
@@ -132,6 +132,26 @@ try {
 `kind()` is one of `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `QUOTA_EXCEEDED`, `SERVER_ERROR` or `NETWORK`. `getMessage()` is the API's own result code where it sent one, so a refusal reads `NOT_LICENSED` or `LICENSE_EXPIRED` rather than "403".
 
 Note that `RATE_LIMITED` and `QUOTA_EXCEEDED` both arrive as HTTP 429 and are not the same thing. A rate limit is the API protecting itself and retrying later works; a spent quota needs your allowance raised or the window to roll over. The library retries rate limits for you, and 5xx and transport failures, but never a spent quota or any other client error.
+
+### Sign in with OAuth (device flow)
+
+A program running on the person's own machine can let them sign in with a browser and pick one of their API keys, instead of asking them to paste it:
+
+```java
+InternetData client = InternetData.create();
+
+DeviceAuthorization device = client.oauth().deviceAuthorization("your-client-id",
+        new DeviceAuthorizationOptions().scope("account.read apikeys.read apikeys.reveal"));
+System.out.println("Open " + device.getVerificationUri() + " and enter " + device.getUserCode());
+
+TokenResponse token = client.oauth().pollDeviceToken("your-client-id", device);
+if (token.getApikey() == null) {
+    throw new IllegalStateException("no API key came back: none was picked, or it cannot be shown again");
+}
+InternetData keyed = InternetData.builder().apiKey(token.getApikey()).build();
+```
+
+A denied sign-in throws `OauthAccessDeniedException` and a code that ran out `OauthExpiredTokenException`, and client IDs are issued on request from support@internetdata.io. `client.oauth().revoke("your-client-id", token.getRefreshToken())` signs the machine out again.
 
 ## Other Libraries
 

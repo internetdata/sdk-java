@@ -48,6 +48,13 @@ MODELS="${MODELS}:DatabaseList:DownloadList:DatabaseChecksumsResponse"
 # The two named enums. A schema reachable from a selected model is NOT pulled in
 # automatically; leave them out and the build references a class nobody wrote.
 MODELS="${MODELS}:DatabaseFormat:Standing"
+# What client.oauth() returns. Its requests are built by hand, so no Authorization
+# operation is generated and no public class ships that nothing calls; the IAM
+# schemas stay out for the same reason.
+MODELS="${MODELS}:OauthMetadata:DeviceAuthorization:TokenResponse"
+
+# Without these the token response's `mslm:` members come out as getMslmApikeyId/getMslmApikey.
+MEMBERS="mslm:apikey_id=apikeyId,mslm:apikey=apikey"
 
 # openApiNullable=false keeps org.openapitools:jackson-databind-nullable off a
 # consumer's classpath. Every `nullable: true` field here is one where null and
@@ -71,6 +78,7 @@ docker run --rm \
     --openapi-normalizer "FILTER=operationId:${OPERATIONS}" \
     --model-name-mappings "$RENAMES" \
     --inline-schema-name-mappings "$INLINE" \
+    --name-mappings "$MEMBERS" \
     --global-property "models=${MODELS}" \
     --global-property apis \
     --global-property supportingFiles \
