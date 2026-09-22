@@ -57,10 +57,9 @@ public final class DatabaseApi {
      * Every database your organization may see, with its license beside it.
      *
      * <p>Returned exactly as served. {@code standing} says whether a database is yours today
-     * ({@code licensed}), was ({@code expired}), or has never been bought ({@code unlicensed}) -
-     * but a database built for one customer does not appear at all for anyone else, so this listing
-     * is not a complete inventory of what InternetData publishes and is not the same for two keys.
-     * Nothing here reconstructs it, caches it, or reuses one key's listing for another.
+     * ({@code licensed}), was ({@code expired}), or has never been bought ({@code unlicensed}).
+     * This is the server's answer for this key, so a listing held from one key is not an answer
+     * for another. Nothing here reconstructs it, caches it, or reuses one key's listing for another.
      *
      * <p>A license covers a FAMILY while a transfer names a version, so the ids the other methods
      * take come from {@link Database#getVersions()} rather than from {@link Database#getBase()}.
