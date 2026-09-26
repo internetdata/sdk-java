@@ -161,7 +161,7 @@ There are official InternetData client libraries available for many languages in
 
 InternetData publishes IP intelligence databases: hosting and datacenter ranges, proxy and VPN infrastructure, CDN and relay space, and the reference catalogs behind them.
 
-[<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="96"/>](https://internetdata.io/)
+[<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" height="64"/>](https://internetdata.io/)
 
 ## License
 
