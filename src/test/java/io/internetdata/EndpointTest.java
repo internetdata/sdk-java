@@ -39,7 +39,7 @@ class EndpointTest {
                                 + " \"formats\": [\"csvgz\", \"mmdb\"]}]}]}"),
                 "api/v2/database/downloads", StubHttpClient.Route.ok(
                         "{\"downloads\": [{\"dataset_id\": \"bogon_ip_v1\", \"format\": \"csvgz\","
-                                + " \"outcome\": \"ok\", \"bytes\": 760, \"http_status\": 302,"
+                                + " \"outcome\": \"ok\", \"sample\": true, \"bytes\": 760, \"http_status\": 302,"
                                 + " \"apikey_id\": null, \"client_ip\": null, \"user_agent\": null,"
                                 + " \"created\": \"2026-09-04T10:00:00Z\"}]}"),
                 "api/v2/database/metadata", StubHttpClient.Route.ok(
@@ -62,6 +62,7 @@ class EndpointTest {
         assertEquals(1, attempts.size());
         assertEquals(Download.OutcomeEnum.OK, attempts.get(0).getOutcome());
         assertEquals(760L, attempts.get(0).getBytes(), "bytes is int64 on the wire");
+        assertEquals(true, attempts.get(0).getSample());
 
         DatabaseMetadata meta = client.database().metadata("bogon_ip_v1");
         assertEquals("bogon_ip_v1", meta.getId());
