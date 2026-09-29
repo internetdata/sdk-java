@@ -153,6 +153,23 @@ InternetData keyed = InternetData.builder().apiKey(token.getApikey()).build();
 
 A denied sign-in throws `OauthAccessDeniedException` and a code that ran out `OauthExpiredTokenException`, and client IDs are issued on request from support@internetdata.io. `client.oauth().revoke("your-client-id", token.getRefreshToken())` signs the machine out again.
 
+### Sign in with OAuth (authorization code)
+
+An app that can take a browser redirect signs the person in there instead, with a PKCE pair made for that one sign-in:
+
+```java
+InternetData client = InternetData.create();
+String redirectUri = "http://127.0.0.1:8765/callback";
+Pkce pkce = client.oauth().createPkce();
+
+String url = client.oauth().authorizationUrl("your-client-id", redirectUri, pkce.challenge(),
+        new AuthorizationUrlOptions().scope("apikeys.use").state("your-state"));
+// Open url in the browser. Its redirect to redirectUri carries code and state.
+TokenResponse token = client.oauth().exchangeAuthorizationCode("your-client-id", code, pkce.verifier(), redirectUri);
+```
+
+Check that `state` came back as you sent it before you exchange `code`, which works once. The client ID can also be the https URL of a client metadata document your app serves, and such an app is never handed a key, so `token.getApikey()` stays null.
+
 ## Other Libraries
 
 There are official InternetData client libraries available for many languages including PHP, Python, Go, Java, Ruby, and many popular frameworks such as Django, Rails, and Laravel. See our GitHub at https://github.com/internetdata for more.
