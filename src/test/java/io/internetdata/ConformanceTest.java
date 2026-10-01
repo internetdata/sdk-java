@@ -3,6 +3,7 @@ package io.internetdata;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -135,6 +137,28 @@ class ConformanceTest {
         assertThrows(InternetDataException.class, () -> client.database().metadata("bogon_ip_v1"));
 
         assertEquals(3, http.calls.size(), "a 503 should have been attempted three times");
+    }
+
+    /**
+     * A {@code Retry-After} past 2^31 - 1 ms is waited out on the backoff, still a rate limit
+     * carrying the server's value. Waited as given, 2147484 held a call 24.8 days, and
+     * 9223372036854775807 failed it with a raw {@code ArithmeticException}.
+     */
+    @Test
+    void aRetryAfterTooLongToWaitIsWaitedOnTheBackoff() {
+        for (String value : List.of("2147484", "9223372036854775807", "Fri, 31 Dec 9999 23:59:59 GMT")) {
+            StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/metadata",
+                    new StubHttpClient.Route(429, "{\"rc\": \"RATE_LIMITED\"}", Map.of("Retry-After", value))));
+            InternetData client = clientOn(http).retries(1).build();
+
+            InternetDataException err = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> assertThrows(
+                    InternetDataException.class, () -> client.database().metadata("bogon_ip_v1")), value);
+
+            assertEquals(2, http.calls.size(), value + ": requests");
+            assertEquals(ErrorKind.RATE_LIMITED, err.kind(), value);
+            assertTrue(err.retryAfter().orElseThrow().compareTo(Duration.ofMillis(Integer.MAX_VALUE)) > 0,
+                    value + ": the server's value");
+        }
     }
 
     @Test
