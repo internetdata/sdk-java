@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.3.2 - 2026-10-04
+
+### Fixes
+
+- Re-pin the spec to 2026.10.03: metadata needs no license ([`9254897`](https://github.com/internetdata/sdk-java/commit/92548972c6cddb0aa8ef8d520801f5593de7a0c9))
+
 ## 2.3.1 - 2026-10-01
 
 ### Fixes
