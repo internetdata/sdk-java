@@ -33,13 +33,14 @@ class EndpointTest {
                 "api/v2/database/list", StubHttpClient.Route.ok(
                         "{\"databases\": [{\"base\": \"bogon_ip\", \"name\": \"Bogon IP\","
                                 + " \"summary\": \"non-routable space\", \"standing\": \"licensed\","
-                                + " \"license_type\": \"standard\", \"starts\": null,"
+                                + " \"open\": false, \"license_type\": \"standard\", \"starts\": null,"
                                 + " \"expires\": null, \"versions\": [{\"id\": \"bogon_ip_v1\","
                                 + " \"version\": 1, \"summary\": \"v1\","
                                 + " \"formats\": [\"csvgz\", \"mmdb\"]}]}]}"),
                 "api/v2/database/downloads", StubHttpClient.Route.ok(
                         "{\"downloads\": [{\"dataset_id\": \"bogon_ip_v1\", \"format\": \"csvgz\","
-                                + " \"outcome\": \"ok\", \"sample\": true, \"bytes\": 760, \"http_status\": 302,"
+                                + " \"outcome\": \"ok\", \"sample\": true, \"open\": true, \"bytes\": 760,"
+                                + " \"http_status\": 302,"
                                 + " \"apikey_id\": null, \"client_ip\": null, \"user_agent\": null,"
                                 + " \"created\": \"2026-09-04T10:00:00Z\"}]}"),
                 "api/v2/database/metadata", StubHttpClient.Route.ok(
@@ -55,6 +56,7 @@ class EndpointTest {
         assertEquals(1, listing.size());
         assertEquals("bogon_ip", listing.get(0).getBase());
         assertEquals(io.internetdata.model.Standing.LICENSED, listing.get(0).getStanding());
+        assertEquals(false, listing.get(0).getOpen());
         assertEquals("bogon_ip_v1", listing.get(0).getVersions().get(0).getId());
         assertEquals(2, listing.get(0).getVersions().get(0).getFormats().size());
 
@@ -63,6 +65,7 @@ class EndpointTest {
         assertEquals(Download.OutcomeEnum.OK, attempts.get(0).getOutcome());
         assertEquals(760L, attempts.get(0).getBytes(), "bytes is int64 on the wire");
         assertEquals(true, attempts.get(0).getSample());
+        assertEquals(true, attempts.get(0).getOpen(), "taken under the Open license");
 
         DatabaseMetadata meta = client.database().metadata("bogon_ip_v1");
         assertEquals("bogon_ip_v1", meta.getId());
@@ -79,12 +82,13 @@ class EndpointTest {
         StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
                 StubHttpClient.Route.ok("{\"databases\": [{\"base\": \"hosting_ip\","
                         + " \"name\": \"Hosting IP\", \"summary\": \"s\","
-                        + " \"standing\": \"unlicensed\", \"license_type\": null,"
+                        + " \"standing\": \"unlicensed\", \"open\": true, \"license_type\": null,"
                         + " \"starts\": null, \"expires\": null, \"versions\": []}]}")));
 
         Database family = client(http).database().list().get(0);
 
         assertEquals(io.internetdata.model.Standing.UNLICENSED, family.getStanding());
+        assertEquals(true, family.getOpen(), "an Open family downloads whatever its standing");
         assertNull(family.getLicenseType(), "no license means no license_type term");
         assertNull(family.getExpires());
         assertTrue(family.getVersions().isEmpty());

@@ -303,6 +303,7 @@ class ConformanceTest {
                     .append(", \"name\": \"Family ").append(i).append("\"")
                     .append(", \"summary\": \"a family\"")
                     .append(", \"standing\": \"").append(standings[i]).append("\"")
+                    .append(", \"open\": false")
                     .append(", \"license_type\": ")
                     .append("licensed".equals(standings[i]) ? "\"standard\"" : "null")
                     .append(", \"starts\": null, \"expires\": null")
