@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.2 - 2026-10-10
+
+### Fixes
+
+- Re-pin the spec to 2026.10.09: rotating a key needs apikeys.reveal ([`f999c7d`](https://github.com/internetdata/sdk-java/commit/f999c7d44bc4299688e2a8c3683bba43fa1f6549))
+
 ## 2.4.1 - 2026-10-10
 
 ### Fixes
