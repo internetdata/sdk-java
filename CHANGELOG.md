@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.1 - 2026-10-10
+
+### Fixes
+
+- Publish to Maven Central, which refused 2.4.0: release on Maven 3.9 ([`f16bbf9`](https://github.com/internetdata/sdk-java/commit/f16bbf9b5729b328cc143dff7c2dcc53f0c6ba99))
+
 ## 2.4.0 - 2026-10-09
 
 ### Features
