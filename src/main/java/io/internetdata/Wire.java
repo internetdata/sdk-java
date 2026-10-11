@@ -1,9 +1,11 @@
 package io.internetdata;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.internetdata.internal.ApiException;
+import io.internetdata.internal.ApiResponse;
 
 import java.time.DateTimeException;
 import java.time.Duration;
@@ -12,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.Year;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -90,8 +93,29 @@ final class Wire {
         }
     }
 
+    /**
+     * The member of a 2xx answer a call returns. An answer without it - {@code {}}, {@code null}, an
+     * empty body - is no answer at all: a retried {@code SERVER_ERROR} carrying the status, never a
+     * null handed back as if it were the answer.
+     */
+    static <T, M> M member(ApiResponse<T> response, Function<T, M> member, String name) {
+        T data = response.getData();
+        M value = data == null ? null : member.apply(data);
+        if (value == null) {
+            throw new InternetDataException(ErrorKind.SERVER_ERROR, "the API answered with no " + name,
+                    response.getStatusCode(), null, null);
+        }
+        return value;
+    }
+
     static InternetDataException translate(ApiException e) {
         int status = e.getCode();
+        // The generated layer decodes only once a 2xx has arrived, and drops its status when the body
+        // is not the JSON it expects; every call it decodes answers 200.
+        if (status == 0 && e.getCause() instanceof JsonProcessingException) {
+            return new InternetDataException(ErrorKind.SERVER_ERROR,
+                    "the API did not answer with the JSON this call reads", 200, null, e.getCause());
+        }
         if (status == 0) {
             return new InternetDataException(ErrorKind.NETWORK, messageOf(e), null, null, e.getCause());
         }

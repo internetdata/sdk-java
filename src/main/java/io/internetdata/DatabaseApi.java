@@ -5,8 +5,11 @@ import io.internetdata.internal.ApiClient;
 import io.internetdata.internal.ApiException;
 import io.internetdata.model.Database;
 import io.internetdata.model.DatabaseChecksums;
+import io.internetdata.model.DatabaseChecksumsResponse;
+import io.internetdata.model.DatabaseList;
 import io.internetdata.model.DatabaseMetadata;
 import io.internetdata.model.Download;
+import io.internetdata.model.DownloadList;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,7 +68,8 @@ public final class DatabaseApi {
      * take come from {@link Database#getVersions()} rather than from {@link Database#getBase()}.
      */
     public List<Database> list() {
-        return Wire.execute(retries, () -> api.listDatabases().getDatabases());
+        return Wire.execute(retries,
+                () -> Wire.member(api.listDatabasesWithHttpInfo(), DatabaseList::getDatabases, "databases"));
     }
 
     /**
@@ -77,7 +81,8 @@ public final class DatabaseApi {
      */
     public DatabaseMetadata metadata(String id) {
         Objects.requireNonNull(id, "id");
-        return Wire.execute(retries, () -> api.databaseMetadataV2(id));
+        return Wire.execute(retries, () -> Wire.member(api.databaseMetadataV2WithHttpInfo(id),
+                metadata -> metadata.getId() == null ? null : metadata, "id"));
     }
 
     /**
@@ -90,17 +95,21 @@ public final class DatabaseApi {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(format, "format");
         return Wire.execute(retries,
-                () -> api.databaseChecksumV2(id, io.internetdata.model.DatabaseFormat.fromValue(format.wireValue())).getChecksums());
+                () -> Wire.member(api.databaseChecksumV2WithHttpInfo(id,
+                        io.internetdata.model.DatabaseFormat.fromValue(format.wireValue())),
+                        DatabaseChecksumsResponse::getChecksums, "checksums"));
     }
 
     /** Your organization's recent download attempts, newest first, refusals included. */
     public List<Download> downloads() {
-        return Wire.execute(retries, () -> api.listDownloads(null).getDownloads());
+        return Wire.execute(retries,
+                () -> Wire.member(api.listDownloadsWithHttpInfo(null), DownloadList::getDownloads, "downloads"));
     }
 
     /** The same, capped at {@code limit} attempts. The API clamps anything past 200. */
     public List<Download> downloads(int limit) {
-        return Wire.execute(retries, () -> api.listDownloads(limit).getDownloads());
+        return Wire.execute(retries,
+                () -> Wire.member(api.listDownloadsWithHttpInfo(limit), DownloadList::getDownloads, "downloads"));
     }
 
     /**
