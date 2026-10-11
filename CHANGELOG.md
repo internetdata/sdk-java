@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.4 - 2026-10-11
+
+### Fixes
+
+- Retry a 200 the call cannot read, carrying its status ([`2449f83`](https://github.com/internetdata/sdk-java/commit/2449f835dccf8d8dddbc53b938220f0d18e1129a))
+
 ## 2.4.3 - 2026-10-11
 
 ### Fixes
