@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.3 - 2026-10-11
+
+### Fixes
+
+- Read Retry-After as digits or an RFC 9110 date in GMT ([`5225044`](https://github.com/internetdata/sdk-java/commit/5225044240ed6c27be61de10d1d562c24e84751e))
+
 ## 2.4.2 - 2026-10-10
 
 ### Fixes
