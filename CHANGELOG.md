@@ -2,6 +2,14 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.5 - 2026-10-13
+
+### Fixes
+
+- Re-pin the spec to 2026.10.13: Open databases come with a license ([`3cb7e90`](https://github.com/internetdata/sdk-java/commit/3cb7e90f8f4f8119646ea0f632c190c0597d1e75))
+- Trim the API key, and refuse one holding a control character ([`e166033`](https://github.com/internetdata/sdk-java/commit/e1660338a86bebcfb7426ddd1444fa646d0e9b46))
+- Retry {} from list and downloads as a server error with its status ([`ac68297`](https://github.com/internetdata/sdk-java/commit/ac682971271a900c6ba49e8e868a53e347a88c6b))
+
 ## 2.4.4 - 2026-10-11
 
 ### Fixes
