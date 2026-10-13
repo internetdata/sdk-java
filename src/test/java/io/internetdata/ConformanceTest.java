@@ -205,16 +205,18 @@ class ConformanceTest {
     /**
      * A 200 a call cannot read is a retried {@code SERVER_ERROR} carrying the status. The generated
      * layer wrapped a body Jackson could not read as an {@code ApiException} with no status, so an
-     * HTML page came back {@code NETWORK}, and an empty or {@code null} body came back null.
+     * HTML page came back {@code NETWORK}, and an empty or {@code null} body came back null. The
+     * generator starts a list member at an empty list, so {@code {}} answered an empty catalog or no
+     * downloads until 2.4.5.
      */
     @Test
     void a200TheCallCannotReadIsARetriedServerError() {
         Map<String, List<String>> cases = new java.util.LinkedHashMap<>();
         cases.put("api/v2/database/list",
-                List.of("<html>gateway</html>", "{\"databases\":", "", "null", "[]", "{\"databases\":null}"));
+                List.of("<html>gateway</html>", "{\"databases\":", "", "null", "[]", "{}", "{\"databases\":null}"));
         cases.put("api/v2/database/metadata", List.of("<html>gateway</html>", "", "null", "{}"));
         cases.put("api/v2/database/checksum", List.of("<html>gateway</html>", "{}", "{\"checksums\":null}"));
-        cases.put("api/v2/database/downloads", List.of("<html>gateway</html>", "null", "{\"downloads\":null}"));
+        cases.put("api/v2/database/downloads", List.of("<html>gateway</html>", "null", "{}", "{\"downloads\":null}"));
         cases.forEach((path, bodies) -> bodies.forEach(body -> {
             StubHttpClient http = StubHttpClient.of(Map.of(path, StubHttpClient.Route.ok(body)));
             InternetData client = clientOn(http).retries(1).build();

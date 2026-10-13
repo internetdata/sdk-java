@@ -33,7 +33,7 @@ public final class InternetData {
     private InternetData(Builder b) {
         HttpClient http = new DeadlineHttpClient(b.httpClient != null ? b.httpClient : defaultHttpClient());
         ApiClient client = new ApiClient(new FixedHttpClientBuilder(http),
-                ApiClient.createDefaultObjectMapper(), b.baseUrl);
+                ApiClient.createDefaultObjectMapper().registerModule(RequiredMembers.module()), b.baseUrl);
         client.setReadTimeout(b.requestTimeout);
         if (b.apiKey != null) {
             // The `native` generator emits no auth plumbing at all - it ignores the spec's

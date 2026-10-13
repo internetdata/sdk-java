@@ -173,6 +173,8 @@ class DownloadTest {
                 () -> client(http).database().downloadUrl("bogon_ip_v1", DatabaseFormat.CSVGZ));
 
         assertEquals(ErrorKind.SERVER_ERROR, err.kind());
+        assertEquals(200, err.statusCode().orElseThrow(), "the answer's status");
+        assertEquals(3, http.calls.size(), "retried");
         assertTrue(err.getMessage().contains("must not follow redirects"));
     }
 

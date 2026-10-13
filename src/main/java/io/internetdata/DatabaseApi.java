@@ -124,8 +124,10 @@ public final class DatabaseApi {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(format, "format");
         return Wire.execute(retries, () -> {
+            int status;
             try {
-                api.downloadDatabaseV2WithHttpInfo(id, io.internetdata.model.DatabaseFormat.fromValue(format.wireValue()));
+                status = api.downloadDatabaseV2WithHttpInfo(id,
+                        io.internetdata.model.DatabaseFormat.fromValue(format.wireValue())).getStatusCode();
             } catch (ApiException e) {
                 // The generated method treats any non-2xx as a failure, so the SUCCESS case for
                 // this endpoint arrives as an exception carrying the Location header.
@@ -138,7 +140,8 @@ public final class DatabaseApi {
                 return location;
             }
             throw new InternetDataException(ErrorKind.SERVER_ERROR,
-                    "expected a redirect to object storage; the HttpClient must not follow redirects");
+                    "expected a redirect to object storage; the HttpClient must not follow redirects",
+                    status, null, null);
         });
     }
 
