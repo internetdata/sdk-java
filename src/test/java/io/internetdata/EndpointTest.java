@@ -65,7 +65,7 @@ class EndpointTest {
         assertEquals(Download.OutcomeEnum.OK, attempts.get(0).getOutcome());
         assertEquals(760L, attempts.get(0).getBytes(), "bytes is int64 on the wire");
         assertEquals(true, attempts.get(0).getSample());
-        assertEquals(true, attempts.get(0).getOpen(), "taken under the Open license");
+        assertEquals(true, attempts.get(0).getOpen(), "a download of an Open database");
 
         DatabaseMetadata meta = client.database().metadata("bogon_ip_v1");
         assertEquals("bogon_ip_v1", meta.getId());
@@ -88,7 +88,7 @@ class EndpointTest {
         Database family = client(http).database().list().get(0);
 
         assertEquals(io.internetdata.model.Standing.UNLICENSED, family.getStanding());
-        assertEquals(true, family.getOpen(), "an Open family downloads whatever its standing");
+        assertEquals(true, family.getOpen(), "an Open family's standing stays as served");
         assertNull(family.getLicenseType(), "no license means no license_type term");
         assertNull(family.getExpires());
         assertTrue(family.getVersions().isEmpty());
