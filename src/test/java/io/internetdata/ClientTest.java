@@ -2,6 +2,7 @@ package io.internetdata;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 
 /** The builder, and the settings a caller is most likely to reach for. */
@@ -31,6 +33,31 @@ class ClientTest {
         assertEquals(2, http.calls.size());
         assertNull(http.authorizations.get(0), "an unset key still sent an Authorization header");
         assertNull(http.authorizations.get(1), "an empty key still sent an Authorization header");
+    }
+
+    /**
+     * The key is trimmed, blanks alone are no key, and a control character in it is refused where
+     * it is set. Before 2.4.5 a key of blanks went out as a bare {@code Bearer}, a padded one padded
+     * and a tab inside one as itself, while a CR, LF, NUL or DEL failed every call with the JDK's
+     * raw {@code IllegalArgumentException}, whose message quoted the key.
+     */
+    @Test
+    void theKeyIsTrimmedAndAControlCharacterInItIsRefusedWhereItIsSet() {
+        StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
+                StubHttpClient.Route.ok("{\"databases\": []}")));
+
+        InternetData.builder().httpClient(http).apiKey(" \tsecret-key\r\n").build().database().list();
+        InternetData.builder().httpClient(http).apiKey(" \t \n").build().database().list();
+
+        assertEquals("Bearer secret-key", http.authorizations.get(0));
+        assertNull(http.authorizations.get(1), "a key of blanks still sent an Authorization header");
+        for (String key : List.of("se\tcret", "se\rcret", "se\ncret", "se\u0000cret", "se\u007fcret",
+                "secret\r\nX-Injected: 1", "se\u0085cret")) {
+            IllegalArgumentException err = assertThrows(IllegalArgumentException.class,
+                    () -> InternetData.builder().apiKey(key), "accepted " + key);
+            assertFalse(err.getMessage().contains("cret"), "the refusal quoted the key: " + err.getMessage());
+        }
+        assertEquals(2, http.calls.size());
     }
 
     @Test
