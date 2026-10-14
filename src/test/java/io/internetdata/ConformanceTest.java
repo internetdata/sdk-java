@@ -207,31 +207,163 @@ class ConformanceTest {
      * layer wrapped a body Jackson could not read as an {@code ApiException} with no status, so an
      * HTML page came back {@code NETWORK}, and an empty or {@code null} body came back null. The
      * generator starts a list member at an empty list, so {@code {}} answered an empty catalog or no
-     * downloads until 2.4.5.
+     * downloads until 2.4.5, and an entry without its members, or a null entry, came back as a model
+     * of nulls or a null until 2.4.6.
      */
     @Test
     void a200TheCallCannotReadIsARetriedServerError() {
         Map<String, List<String>> cases = new java.util.LinkedHashMap<>();
-        cases.put("api/v2/database/list",
-                List.of("<html>gateway</html>", "{\"databases\":", "", "null", "[]", "{}", "{\"databases\":null}"));
-        cases.put("api/v2/database/metadata", List.of("<html>gateway</html>", "", "null", "{}"));
-        cases.put("api/v2/database/checksum", List.of("<html>gateway</html>", "{}", "{\"checksums\":null}"));
-        cases.put("api/v2/database/downloads", List.of("<html>gateway</html>", "null", "{}", "{\"downloads\":null}"));
+        cases.put("api/v2/database/list", List.of("<html>gateway</html>", "{\"databases\":", "", "null", "[]", "{}",
+                "{\"databases\":null}", "{\"databases\":[{}]}", "{\"databases\":[null]}"));
+        cases.put("api/v2/database/metadata", List.of("<html>gateway</html>", "", "null", "{}", "{\"id\":\"bogon_ip_v1\"}"));
+        cases.put("api/v2/database/checksum", List.of("<html>gateway</html>", "{}", "{\"checksums\":null}",
+                "{\"id\":\"bogon_ip_v1\",\"format\":\"mmdb\",\"checksums\":{}}"));
+        cases.put("api/v2/database/downloads", List.of("<html>gateway</html>", "null", "{}", "{\"downloads\":null}",
+                "{\"downloads\":[{}]}", "{\"downloads\":[null]}"));
         cases.forEach((path, bodies) -> bodies.forEach(body -> {
             StubHttpClient http = StubHttpClient.of(Map.of(path, StubHttpClient.Route.ok(body)));
             InternetData client = clientOn(http).retries(1).build();
-            InternetDataException err = assertThrows(InternetDataException.class, () -> {
-                switch (path) {
-                    case "api/v2/database/list" -> client.database().list();
-                    case "api/v2/database/metadata" -> client.database().metadata("bogon_ip_v1");
-                    case "api/v2/database/checksum" -> client.database().checksums("bogon_ip_v1", DatabaseFormat.MMDB);
-                    default -> client.database().downloads();
-                }
-            }, path + " '" + body + "'");
+            InternetDataException err = assertThrows(InternetDataException.class, () -> call(client, path),
+                    path + " '" + body + "'");
             assertEquals(ErrorKind.SERVER_ERROR, err.kind(), path + " '" + body + "'");
             assertEquals(200, err.statusCode().orElseThrow(), path + " '" + body + "'");
             assertEquals(2, http.calls.size(), path + " '" + body + "': retried");
         }));
+    }
+
+    private static final Map<String, String> WHOLE = Map.of(
+            "api/v2/database/list", "{\"databases\": [{\"base\": \"bogon_ip\", \"name\": \"Bogon IP\","
+                    + " \"summary\": \"non-routable space\", \"standing\": \"licensed\", \"open\": true,"
+                    + " \"license_type\": \"standard\", \"starts\": null, \"expires\": null, \"renews_at\": null,"
+                    + " \"notice_due_at\": null, \"versions\": [{\"id\": \"bogon_ip_v1\", \"version\": 1,"
+                    + " \"summary\": \"v1\", \"formats\": [\"csvgz\", \"mmdb\"]}]}]}",
+            "api/v2/database/metadata", "{\"id\": \"bogon_ip_v1\", \"updated\": \"2026-09-04\", \"entries\": 42,"
+                    + " \"schema\": {\"csvgz\": [{\"name\": \"ip\", \"type\": \"string\", \"description\": \"the range\"}]},"
+                    + " \"size\": {\"csvgz\": 760, \"mmdb\": 3524}}",
+            "api/v2/database/checksum", "{\"id\": \"bogon_ip_v1\", \"format\": \"mmdb\", \"checksums\": {\"md5\": \"m\","
+                    + " \"sha1\": \"s1\", \"sha256\": \"s256\", \"sha512\": \"s512\"}}",
+            "api/v2/database/downloads", "{\"downloads\": [{\"dataset_id\": \"bogon_ip_v1\", \"format\": \"csvgz\","
+                    + " \"outcome\": \"ok\", \"sample\": true, \"open\": true, \"bytes\": 760, \"http_status\": 302,"
+                    + " \"apikey_id\": null, \"client_ip\": null, \"user_agent\": null,"
+                    + " \"created\": \"2026-09-04T10:00:00Z\"}]}");
+
+    /**
+     * One member per case, left out and then sent as null, from an otherwise whole answer: a body
+     * missing several at once lets a decoder that defaults all but one of them pass.
+     */
+    @Test
+    void anAnswerWithoutAMemberTheSpecRequiresIsARetriedServerError() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, StubHttpClient.Route> routes = new HashMap<>();
+        WHOLE.forEach((path, body) -> routes.put(path, StubHttpClient.Route.ok(body)));
+        InternetData decodes = clientOn(StubHttpClient.of(routes)).build();
+        for (String path : WHOLE.keySet()) {
+            call(decodes, path);
+        }
+        List<List<String>> cases = List.of(
+                List.of("api/v2/database/list", "/databases/0", "base", "name", "summary", "standing", "open", "versions"),
+                List.of("api/v2/database/list", "/databases/0/versions/0", "id", "version", "summary", "formats"),
+                List.of("api/v2/database/metadata", "", "id", "updated", "entries", "schema", "size"),
+                List.of("api/v2/database/metadata", "/schema/csvgz/0", "name", "type"),
+                List.of("api/v2/database/checksum", "/checksums", "md5", "sha1", "sha256", "sha512"),
+                List.of("api/v2/database/downloads", "/downloads/0", "dataset_id", "format", "outcome", "sample", "open",
+                        "created"));
+        for (List<String> each : cases) {
+            String path = each.get(0);
+            for (String member : each.subList(2, each.size())) {
+                for (boolean drop : new boolean[] {true, false}) {
+                    JsonNode body = mapper.readTree(WHOLE.get(path));
+                    var holder = (com.fasterxml.jackson.databind.node.ObjectNode) body.at(each.get(1));
+                    if (drop) {
+                        assertTrue(holder.remove(member) != null, member + " is not at " + each.get(1));
+                    } else {
+                        holder.putNull(member);
+                    }
+                    String label = path + " " + each.get(1) + " " + member + (drop ? " left out" : " null");
+                    StubHttpClient http = StubHttpClient.of(Map.of(path,
+                            StubHttpClient.Route.ok(mapper.writeValueAsString(body))));
+                    InternetData client = clientOn(http).retries(1).build();
+                    InternetDataException err = assertThrows(InternetDataException.class, () -> call(client, path), label);
+                    assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+                    assertEquals(200, err.statusCode().orElseThrow(), label);
+                    assertEquals(2, http.calls.size(), label + ": retried");
+                }
+            }
+        }
+    }
+
+    /**
+     * The table is the spec's {@code required} lists less what each marks nullable, which the
+     * generator writes as the models' {@code @Nonnull} fields, so a re-pin that adds one turns this
+     * red until the table has it. Every model an answer reaches must be in the table.
+     */
+    @Test
+    void theRequiredMembersAreTheModelsNonnullOnes() throws ReflectiveOperationException {
+        Set<Class<?>> envelopes = Set.of(io.internetdata.model.DatabaseList.class,
+                io.internetdata.model.DownloadList.class, io.internetdata.model.DatabaseChecksumsResponse.class);
+        Set<Class<?>> reached = new LinkedHashSet<>();
+        List<Class<?>> pending = new ArrayList<>(envelopes);
+        pending.add(io.internetdata.model.DatabaseMetadata.class);
+        while (!pending.isEmpty()) {
+            Class<?> model = pending.remove(pending.size() - 1);
+            if (!reached.add(model)) {
+                continue;
+            }
+            Set<String> nonnull = new java.util.TreeSet<>();
+            for (java.lang.reflect.Field constant : model.getFields()) {
+                if (!constant.getName().startsWith("JSON_PROPERTY_")) {
+                    continue;
+                }
+                String member = (String) constant.get(null);
+                java.lang.reflect.Field field = model.getDeclaredField(camel(member));
+                if (field.isAnnotationPresent(javax.annotation.Nonnull.class)) {
+                    nonnull.add(member);
+                }
+                models(field.getGenericType(), pending);
+            }
+            List<String> table = RequiredMembers.MEMBERS.get(model);
+            assertTrue(table != null, model.getSimpleName() + " is not in the table");
+            if (envelopes.contains(model)) {
+                assertTrue(nonnull.containsAll(table), model.getSimpleName());
+            } else {
+                assertEquals(nonnull, new java.util.TreeSet<>(table), model.getSimpleName());
+            }
+        }
+        assertEquals(RequiredMembers.MEMBERS.keySet(), reached);
+    }
+
+    private static String camel(String member) {
+        StringBuilder out = new StringBuilder();
+        boolean upper = false;
+        for (char c : member.toCharArray()) {
+            if (c == '_') {
+                upper = true;
+            } else {
+                out.append(upper ? Character.toUpperCase(c) : c);
+                upper = false;
+            }
+        }
+        return out.toString();
+    }
+
+    private static void models(java.lang.reflect.Type type, List<Class<?>> into) {
+        if (type instanceof java.lang.reflect.ParameterizedType parameterized) {
+            for (java.lang.reflect.Type argument : parameterized.getActualTypeArguments()) {
+                models(argument, into);
+            }
+        } else if (type instanceof Class<?> model && !model.isEnum()
+                && model.getPackageName().equals("io.internetdata.model")) {
+            into.add(model);
+        }
+    }
+
+    private static void call(InternetData client, String path) {
+        switch (path) {
+            case "api/v2/database/list" -> client.database().list();
+            case "api/v2/database/metadata" -> client.database().metadata("bogon_ip_v1");
+            case "api/v2/database/checksum" -> client.database().checksums("bogon_ip_v1", DatabaseFormat.MMDB);
+            default -> client.database().downloads();
+        }
     }
 
     @Test
