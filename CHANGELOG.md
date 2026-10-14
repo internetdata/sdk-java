@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.4.6 - 2026-10-14
+
+### Fixes
+
+- Refuse a database entry without a member the spec requires ([`2868229`](https://github.com/internetdata/sdk-java/commit/2868229b492bd2e9b6f88f68cb5c851f0312bb14))
+
 ## 2.4.5 - 2026-10-13
 
 ### Fixes
