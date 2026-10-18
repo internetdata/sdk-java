@@ -2,6 +2,17 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.6.0 - 2026-10-18
+
+### Features
+
+- Add oauth().register, dynamic client registration ([`6a27a1b`](https://github.com/internetdata/sdk-java/commit/6a27a1b9607105b20e92ce42548d285a10f183f4))
+
+### Fixes
+
+- Refuse a database answer member of the wrong type ([`6be411a`](https://github.com/internetdata/sdk-java/commit/6be411aca21b3ab7f2ce2d1c78f677e6320c1eb7))
+- Re-pin the spec to 2026.10.18: client_id_issued_at is int64 ([`057370f`](https://github.com/internetdata/sdk-java/commit/057370f2f3a4ab825823e661999cb33d61064b32))
+
 ## 2.5.0 - 2026-10-17
 
 ### Features
