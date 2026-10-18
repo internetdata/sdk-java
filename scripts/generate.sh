@@ -51,7 +51,7 @@ MODELS="${MODELS}:DatabaseFormat:Standing"
 # What client.oauth() returns. Its requests are built by hand, so no Authorization
 # operation is generated and no public class ships that nothing calls; the IAM
 # schemas stay out for the same reason.
-MODELS="${MODELS}:OauthMetadata:DeviceAuthorization:TokenResponse"
+MODELS="${MODELS}:OauthMetadata:DeviceAuthorization:TokenResponse:ClientRegistration"
 
 # Without these the token response's `mslm:` members come out as getMslmApikeyId/getMslmApikey.
 MEMBERS="mslm:apikey_id=apikeyId,mslm:apikey=apikey"
