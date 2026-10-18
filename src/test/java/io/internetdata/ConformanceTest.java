@@ -293,6 +293,48 @@ class ConformanceTest {
     }
 
     /**
+     * A member of the wrong type, one per case, in an otherwise whole answer. Jackson's defaults read
+     * {@code "3"} as the number 3, {@code 3} as the string "3" and {@code "true"} as true, so each of
+     * these was answered through 2.5.0.
+     */
+    @Test
+    void aMemberOfTheWrongTypeIsARetriedServerError() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<List<Object>> cases = List.of(
+                List.of("api/v2/database/list", "/databases/0/versions/0", "version", "3"),
+                List.of("api/v2/database/list", "/databases/0/versions/0", "version", 3.5),
+                List.of("api/v2/database/list", "/databases/0", "base", 3),
+                List.of("api/v2/database/list", "/databases/0", "open", "yes"),
+                List.of("api/v2/database/list", "/databases/0", "open", "true"),
+                List.of("api/v2/database/list", "/databases/0", "open", 1),
+                List.of("api/v2/database/list", "/databases/0/versions/0/formats", "0", 1),
+                List.of("api/v2/database/metadata", "", "entries", "42"),
+                List.of("api/v2/database/metadata", "/size", "csvgz", "760"),
+                List.of("api/v2/database/metadata", "/schema/csvgz/0", "type", false),
+                List.of("api/v2/database/checksum", "/checksums", "md5", 5),
+                List.of("api/v2/database/downloads", "/downloads/0", "bytes", "1234"),
+                List.of("api/v2/database/downloads", "/downloads/0", "sample", "true"));
+        for (List<Object> each : cases) {
+            String path = (String) each.get(0);
+            JsonNode body = mapper.readTree(WHOLE.get(path));
+            JsonNode holder = body.at((String) each.get(1));
+            JsonNode value = mapper.valueToTree(each.get(3));
+            if (holder.isArray()) {
+                ((com.fasterxml.jackson.databind.node.ArrayNode) holder).set(Integer.parseInt((String) each.get(2)), value);
+            } else {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) holder).set((String) each.get(2), value);
+            }
+            String label = path + " " + each.get(1) + " " + each.get(2) + " = " + value;
+            StubHttpClient http = StubHttpClient.of(Map.of(path, StubHttpClient.Route.ok(mapper.writeValueAsString(body))));
+            InternetData client = clientOn(http).retries(1).build();
+            InternetDataException err = assertThrows(InternetDataException.class, () -> call(client, path), label);
+            assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+            assertEquals(200, err.statusCode().orElseThrow(), label);
+            assertEquals(2, http.calls.size(), label + ": retried");
+        }
+    }
+
+    /**
      * The table is the spec's {@code required} lists less what each marks nullable, which the
      * generator writes as the models' {@code @Nonnull} fields, so a re-pin that adds one turns this
      * red until the table has it. Every model an answer reaches must be in the table.

@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.CoercionAction;
+import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.type.LogicalType;
 
 import io.internetdata.model.Database;
 import io.internetdata.model.DatabaseChecksums;
@@ -35,7 +39,9 @@ import java.util.Set;
  * without its members as a model of nulls (2.4.5, measured 2026-10-14); once decoded, the absence
  * could not be seen. Each member is checked on the tree before the generated model is built, so a
  * body without one, or with one null or holding a null, fails to decode, which {@link Wire} makes a
- * retried {@link ErrorKind#SERVER_ERROR} carrying the status.
+ * retried {@link ErrorKind#SERVER_ERROR} carrying the status. Jackson's own coercions are turned off for the
+ * same reason: it read {@code "3"} as the number 3 and {@code 3} as the string "3" (2.5.0, measured
+ * 2026-10-18).
  */
 final class RequiredMembers extends BeanDeserializerModifier {
     /**
@@ -54,10 +60,23 @@ final class RequiredMembers extends BeanDeserializerModifier {
             DatabaseChecksums.class, List.of("md5", "sha1", "sha256", "sha512"),
             Download.class, List.of("dataset_id", "format", "outcome", "sample", "open", "created"));
 
-    static SimpleModule module() {
+    /**
+     * The mapper every answer is read with: no scalar read from another JSON type, and this module.
+     * A date still reads from a string, which is its own shape rather than a coercion.
+     */
+    static ObjectMapper configure(ObjectMapper mapper) {
+        for (LogicalType type : List.of(LogicalType.Integer, LogicalType.Float, LogicalType.Boolean)) {
+            mapper.coercionConfigFor(type).setCoercion(CoercionInputShape.String, CoercionAction.Fail);
+        }
+        mapper.coercionConfigFor(LogicalType.Integer).setCoercion(CoercionInputShape.Float, CoercionAction.Fail);
+        mapper.coercionConfigFor(LogicalType.Boolean).setCoercion(CoercionInputShape.Integer, CoercionAction.Fail);
+        for (CoercionInputShape shape : List.of(CoercionInputShape.Integer, CoercionInputShape.Float,
+                CoercionInputShape.Boolean)) {
+            mapper.coercionConfigFor(LogicalType.Textual).setCoercion(shape, CoercionAction.Fail);
+        }
         SimpleModule module = new SimpleModule("internetdata-required-members");
         module.setDeserializerModifier(new RequiredMembers());
-        return module;
+        return mapper.registerModule(module);
     }
 
     @Override
