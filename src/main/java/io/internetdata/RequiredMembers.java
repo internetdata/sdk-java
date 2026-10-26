@@ -26,13 +26,17 @@ import io.internetdata.model.Download;
 import io.internetdata.model.DownloadList;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Refuses a database answer without a member it must carry.
+ * Refuses an answer without a member it must carry, or holding one the spec does not allow.
  *
  * <p>The generator starts every list member at an empty list and every other member at null, so
  * {@code {}} decoded as an empty catalog or no downloads (2.4.4, measured 2026-10-13), and an entry
@@ -42,23 +46,30 @@ import java.util.Set;
  * retried {@link ErrorKind#SERVER_ERROR} carrying the status. Jackson's own coercions are turned off for the
  * same reason: it read {@code "3"} as the number 3 and {@code 3} as the string "3" (2.5.0, measured
  * 2026-10-18).
+ *
+ * <p>Through 2.6.1 an optional list or map holding a null, a sample row that is no object, a
+ * checksum answer without its {@code id} or {@code format}, and a {@code license_type} outside its
+ * enum, which the generated nullable enum reads as null, all came back as answers (measured
+ * 2026-10-26).
  */
 final class RequiredMembers extends BeanDeserializerModifier {
     /**
      * By the generated model that carries them: each schema's {@code required} list less the members
-     * it marks nullable, which a test holds to the models' own {@code @Nonnull} fields. An envelope
-     * needs only the member its call returns.
+     * it marks nullable, which a test holds to the models' own {@code @Nonnull} fields.
      */
     static final Map<Class<?>, List<String>> MEMBERS = Map.of(
             DatabaseList.class, List.of("databases"),
             DownloadList.class, List.of("downloads"),
-            DatabaseChecksumsResponse.class, List.of("checksums"),
+            DatabaseChecksumsResponse.class, List.of("id", "format", "checksums"),
             Database.class, List.of("base", "name", "summary", "standing", "open", "versions"),
             DatabaseVersion.class, List.of("id", "version", "summary", "formats"),
             DatabaseMetadata.class, List.of("id", "updated", "entries", "schema", "size"),
             DatabaseMetadataColumn.class, List.of("name", "type"),
             DatabaseChecksums.class, List.of("md5", "sha1", "sha256", "sha512"),
             Download.class, List.of("dataset_id", "format", "outcome", "sample", "open", "created"));
+
+    /** The members whose entries the spec types as objects, by model, which no generated type checks. */
+    static final Map<Class<?>, String> OBJECT_ROWS = Map.of(DatabaseMetadata.class, "sample");
 
     /**
      * The mapper every answer is read with: no scalar read from another JSON type, dates read as RFC
@@ -82,34 +93,50 @@ final class RequiredMembers extends BeanDeserializerModifier {
     @Override
     public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription description,
             JsonDeserializer<?> deserializer) {
-        List<String> members = MEMBERS.get(description.getBeanClass());
-        if (members == null) {
+        Class<?> model = description.getBeanClass();
+        if (!model.getPackageName().equals(Database.class.getPackageName())) {
             return deserializer;
         }
-        // A map's values are checked like a list's entries; a model's members are its own
-        // deserializer's to check.
+        // A map's values are checked like a list's entries, and an enum's value against its
+        // constants; a model's members are its own deserializer's to check.
+        Set<String> lists = new HashSet<>();
         Set<String> maps = new HashSet<>();
+        Map<String, Set<String>> enums = new HashMap<>();
         for (BeanPropertyDefinition property : description.findProperties()) {
-            if (members.contains(property.getName()) && Map.class.isAssignableFrom(property.getRawPrimaryType())) {
+            Class<?> type = property.getRawPrimaryType();
+            if (Map.class.isAssignableFrom(type)) {
                 maps.add(property.getName());
+            } else if (Collection.class.isAssignableFrom(type)) {
+                lists.add(property.getName());
+            } else if (type.isEnum()) {
+                enums.put(property.getName(), Arrays.stream(type.getEnumConstants())
+                        .map(String::valueOf).collect(Collectors.toUnmodifiableSet()));
             }
         }
-        return new Requiring(deserializer, members, Set.copyOf(maps));
+        return new Requiring(deserializer, MEMBERS.getOrDefault(model, List.of()), Set.copyOf(lists),
+                Set.copyOf(maps), Map.copyOf(enums), OBJECT_ROWS.get(model));
     }
 
     private static final class Requiring extends DelegatingDeserializer {
         private final List<String> members;
+        private final Set<String> lists;
         private final Set<String> maps;
+        private final Map<String, Set<String>> enums;
+        private final String objectRows;
 
-        Requiring(JsonDeserializer<?> delegate, List<String> members, Set<String> maps) {
+        Requiring(JsonDeserializer<?> delegate, List<String> members, Set<String> lists, Set<String> maps,
+                Map<String, Set<String>> enums, String objectRows) {
             super(delegate);
             this.members = members;
+            this.lists = lists;
             this.maps = maps;
+            this.enums = enums;
+            this.objectRows = objectRows;
         }
 
         @Override
         protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> delegate) {
-            return new Requiring(delegate, members, maps);
+            return new Requiring(delegate, members, lists, maps, enums, objectRows);
         }
 
         @Override
@@ -120,8 +147,22 @@ final class RequiredMembers extends BeanDeserializerModifier {
             }
             for (String member : members) {
                 JsonNode value = tree.get(member);
-                if (value == null || value.isNull() || holdsNull(value, maps.contains(member))) {
+                if (value == null || value.isNull()) {
                     return context.reportInputMismatch(this, "the answer has no %s", member);
+                }
+            }
+            for (Map.Entry<String, JsonNode> member : tree.properties()) {
+                String name = member.getKey();
+                JsonNode value = member.getValue();
+                if ((lists.contains(name) || maps.contains(name)) && holdsNull(value, maps.contains(name))) {
+                    return context.reportInputMismatch(this, "the answer's %s holds a null", name);
+                }
+                Set<String> constants = enums.get(name);
+                if (constants != null && !value.isNull() && !(value.isTextual() && constants.contains(value.asText()))) {
+                    return context.reportInputMismatch(this, "the answer's %s is not one of %s", name, constants);
+                }
+                if (name.equals(objectRows) && !rowsAreObjects(value)) {
+                    return context.reportInputMismatch(this, "the answer's %s holds a row that is not an object", name);
                 }
             }
             try (JsonParser read = tree.traverse(parser.getCodec())) {
@@ -140,6 +181,19 @@ final class RequiredMembers extends BeanDeserializerModifier {
                 }
             }
             return false;
+        }
+
+        // A map of lists, as the sample's rows keyed by format; any other shape is the generated
+        // type's to refuse.
+        private static boolean rowsAreObjects(JsonNode value) {
+            for (JsonNode rows : value) {
+                for (JsonNode row : rows) {
+                    if (!row.isObject()) {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
     }
 }

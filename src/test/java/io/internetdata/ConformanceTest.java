@@ -26,6 +26,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -268,6 +270,7 @@ class ConformanceTest {
                 List.of("api/v2/database/list", "/databases/0/versions/0", "id", "version", "summary", "formats"),
                 List.of("api/v2/database/metadata", "", "id", "updated", "entries", "schema", "size"),
                 List.of("api/v2/database/metadata", "/schema/csvgz/0", "name", "type"),
+                List.of("api/v2/database/checksum", "", "id", "format", "checksums"),
                 List.of("api/v2/database/checksum", "/checksums", "md5", "sha1", "sha256", "sha512"),
                 List.of("api/v2/database/downloads", "/downloads/0", "dataset_id", "format", "outcome", "sample", "open",
                         "created"));
@@ -335,6 +338,47 @@ class ConformanceTest {
             assertEquals(200, err.statusCode().orElseThrow(), label);
             assertEquals(2, http.calls.size(), label + ": retried");
         }
+    }
+
+    /**
+     * A null inside a list or map, a value outside an enum and a sample row that is no object, each
+     * in an otherwise whole answer. Through 2.6.1 each came back as an answer, a {@code license_type}
+     * outside its enum as null, which reads as no license at all.
+     */
+    @Test
+    void aNullEntryAValueOutsideItsEnumOrARowThatIsNoObjectIsARetriedServerError() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<List<Object>> cases = List.of(
+                List.of("api/v2/database/list", "/databases/0/versions/0", "sample_formats", Arrays.asList((Object) null)),
+                List.of("api/v2/database/list", "/databases/0", "license_type", "perpetual"),
+                List.of("api/v2/database/list", "/databases/0", "license_type", 1),
+                List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", Arrays.asList((Object) null))),
+                List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", List.of(List.of("10.0.0.0/8")))),
+                List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", List.of("10.0.0.0/8"))),
+                List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", List.of(5))),
+                List.of("api/v2/database/metadata", "", "sample", Collections.singletonMap("csvgz", null)),
+                List.of("api/v2/database/metadata", "", "sample_size", Collections.singletonMap("csvgz", null)));
+        for (List<Object> each : cases) {
+            String path = (String) each.get(0);
+            JsonNode body = mapper.readTree(WHOLE.get(path));
+            JsonNode value = mapper.valueToTree(each.get(3));
+            ((com.fasterxml.jackson.databind.node.ObjectNode) body.at((String) each.get(1))).set((String) each.get(2), value);
+            String label = path + " " + each.get(1) + " " + each.get(2) + " = " + value;
+            StubHttpClient http = StubHttpClient.of(Map.of(path, StubHttpClient.Route.ok(mapper.writeValueAsString(body))));
+            InternetData client = clientOn(http).retries(1).build();
+            InternetDataException err = assertThrows(InternetDataException.class, () -> call(client, path), label);
+            assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+            assertEquals(200, err.statusCode().orElseThrow(), label);
+            assertEquals(2, http.calls.size(), label + ": retried");
+        }
+
+        JsonNode metadata = mapper.readTree(WHOLE.get("api/v2/database/metadata"));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) metadata).set("sample",
+                mapper.readTree("{\"csvgz\": [{\"ip\": \"10.0.0.0/8\", \"note\": null}]}"));
+        InternetData client = clientOn(StubHttpClient.of(Map.of("api/v2/database/metadata",
+                StubHttpClient.Route.ok(mapper.writeValueAsString(metadata))))).build();
+        assertEquals(1, client.database().metadata("bogon_ip_v1").getSample().get("csvgz").size(),
+                "a null inside a row is the row's own");
     }
 
     /**
@@ -431,11 +475,7 @@ class ConformanceTest {
             }
             List<String> table = RequiredMembers.MEMBERS.get(model);
             assertTrue(table != null, model.getSimpleName() + " is not in the table");
-            if (envelopes.contains(model)) {
-                assertTrue(nonnull.containsAll(table), model.getSimpleName());
-            } else {
-                assertEquals(nonnull, new java.util.TreeSet<>(table), model.getSimpleName());
-            }
+            assertEquals(nonnull, new java.util.TreeSet<>(table), model.getSimpleName());
         }
         assertEquals(RequiredMembers.MEMBERS.keySet(), reached);
     }
