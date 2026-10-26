@@ -60,6 +60,21 @@ class ClientTest {
         assertEquals(2, http.calls.size());
     }
 
+    /**
+     * The JDK sends a header as ASCII: through 2.6.1 a key holding {@code é} went out with a
+     * {@code ?} in its place, and one holding a character past U+00FF failed every call with the
+     * JDK's raw {@code IllegalArgumentException}, whose message quoted the key.
+     */
+    @Test
+    void aKeyHoldingACharacterOutsideAsciiIsRefusedWhereItIsSet() {
+        for (String key : List.of("s\u00e9cret", "s\u00ffcret", "s\u0100cret", "s\u4e2dcret", "s\ud83d\ude00cret")) {
+            IllegalArgumentException err = assertThrows(IllegalArgumentException.class,
+                    () -> InternetData.builder().apiKey(key), "accepted " + key);
+            assertFalse(err.getMessage().contains("cret"), "the refusal quoted the key: " + err.getMessage());
+        }
+        assertDoesNotThrow(() -> InternetData.builder().apiKey("id_k~!#$%&'*+-.^_`|0123456789"));
+    }
+
     @Test
     void theBaseUrlIsWhereTheRequestGoes() {
         StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
