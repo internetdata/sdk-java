@@ -2,6 +2,14 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.6.2 - 2026-10-26
+
+### Fixes
+
+- Refuse an API key holding a character outside ASCII ([`b284da1`](https://github.com/internetdata/sdk-java/commit/b284da13156b7fa3105ddd40e83967ed81f4ce2e))
+- Read dates as RFC 3339 alone ([`9041e6c`](https://github.com/internetdata/sdk-java/commit/9041e6c9a39a0b68a1c2bcd180fd5371171e57b3))
+- Refuse an answer holding a null, an unknown license type or a bad row ([`079fabf`](https://github.com/internetdata/sdk-java/commit/079fabf0dbeadb2052c7bd5c027ce6cf8bf85586))
+
 ## 2.6.1 - 2026-10-21
 
 ### Fixes
