@@ -22,6 +22,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -332,6 +335,69 @@ class ConformanceTest {
             assertEquals(200, err.statusCode().orElseThrow(), label);
             assertEquals(2, http.calls.size(), label + ": retried");
         }
+    }
+
+    /**
+     * The spec's {@code date} and {@code date-time} are RFC 3339's, and only those are read. Through
+     * 2.6.1 Jackson's readers took a Unix time as a number or a numeric string, a date sent as a
+     * date-time, an epoch day or an array, a padded value, an offset without its colon or minutes or
+     * with seconds, no seconds, a year past four digits, and {@code ""} as no date at all.
+     */
+    @Test
+    void aDateIsReadAsRfc3339AndNothingElse() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<Object> dateTimes = List.of("2026-10-05T10:00:00", " 2026-10-05T10:00:00Z", "2026-10-05T10:00:00Z ",
+                "2026-10-05T10:00:00+0500", "2026-10-05T10:00:00+05", "2026-10-05T10:00:00+05:00:30",
+                "2026-10-05T10:00Z", "2026-10-05 10:00:00Z", "2026-10-05T10:00:00+24:00", "2026-10-05T10:00:00+05:60",
+                "+12026-10-05T10:00:00Z", "2026-10-05T10:00:00.Z", "2026-10-05T10:00:00,5Z", "2026-10-05T10:00:60Z",
+                "2026-10-05T24:00:00Z", "2026-02-30T10:00:00Z", "2026-10-5T10:00:00Z", "2026-W41-1T10:00:00Z",
+                "20261005T100000Z", "2026-10-05", "1700000000", "1.5", 1700000000, 1.5, "x", "");
+        List<Object> dates = List.of(" 2026-10-05", "2026-10-05 ", "2026-10-05T10:00:00", "2026-10-05T10:00:00Z",
+                "+12026-10-05", "-2026-10-05", "2026-10-05Z", "20261005", "2026-W41-1", "2026-278", "2026-02-30",
+                "2026-10-5", 20000, List.of(2026, 10, 5), "x", "");
+        List<List<Object>> cases = new ArrayList<>();
+        for (Object value : dateTimes) {
+            cases.add(List.of("api/v2/database/list", "/databases/0", "starts", value));
+            cases.add(List.of("api/v2/database/downloads", "/downloads/0", "created", value));
+        }
+        for (Object value : dates) {
+            cases.add(List.of("api/v2/database/metadata", "", "updated", value));
+        }
+        for (List<Object> each : cases) {
+            String path = (String) each.get(0);
+            JsonNode body = mapper.readTree(WHOLE.get(path));
+            JsonNode value = mapper.valueToTree(each.get(3));
+            ((com.fasterxml.jackson.databind.node.ObjectNode) body.at((String) each.get(1))).set((String) each.get(2), value);
+            String label = path + " " + each.get(2) + " = " + value;
+            StubHttpClient http = StubHttpClient.of(Map.of(path, StubHttpClient.Route.ok(mapper.writeValueAsString(body))));
+            InternetData client = clientOn(http).retries(1).build();
+            InternetDataException err = assertThrows(InternetDataException.class, () -> call(client, path), label);
+            assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+            assertEquals(200, err.statusCode().orElseThrow(), label);
+            assertEquals(2, http.calls.size(), label + ": retried");
+        }
+
+        Map<String, OffsetDateTime> readable = Map.of(
+                "2026-10-05T10:00:00Z", OffsetDateTime.of(2026, 10, 5, 10, 0, 0, 0, ZoneOffset.UTC),
+                "2026-10-05t10:00:00.5z", OffsetDateTime.of(2026, 10, 5, 10, 0, 0, 500_000_000, ZoneOffset.UTC),
+                "2026-10-05T10:00:00-00:00", OffsetDateTime.of(2026, 10, 5, 10, 0, 0, 0, ZoneOffset.UTC),
+                "2026-10-05T10:00:00.1234567891-05:30",
+                OffsetDateTime.of(2026, 10, 5, 10, 0, 0, 123_456_789, ZoneOffset.ofHoursMinutes(-5, -30)),
+                "2026-10-05T23:59:59+18:00", OffsetDateTime.of(2026, 10, 5, 23, 59, 59, 0, ZoneOffset.ofHours(18)));
+        for (var each : readable.entrySet()) {
+            JsonNode list = mapper.readTree(WHOLE.get("api/v2/database/list"));
+            ((com.fasterxml.jackson.databind.node.ObjectNode) list.at("/databases/0")).put("starts", each.getKey());
+            JsonNode downloads = mapper.readTree(WHOLE.get("api/v2/database/downloads"));
+            ((com.fasterxml.jackson.databind.node.ObjectNode) downloads.at("/downloads/0")).put("created", each.getKey());
+            InternetData client = clientOn(StubHttpClient.of(Map.of(
+                    "api/v2/database/list", StubHttpClient.Route.ok(mapper.writeValueAsString(list)),
+                    "api/v2/database/downloads", StubHttpClient.Route.ok(mapper.writeValueAsString(downloads))))).build();
+            assertEquals(each.getValue(), client.database().list().get(0).getStarts(), each.getKey());
+            assertEquals(each.getValue(), client.database().downloads().get(0).getCreated(), each.getKey());
+        }
+        InternetData client = clientOn(StubHttpClient.of(Map.of("api/v2/database/metadata",
+                StubHttpClient.Route.ok(WHOLE.get("api/v2/database/metadata"))))).build();
+        assertEquals(LocalDate.of(2026, 9, 4), client.database().metadata("bogon_ip_v1").getUpdated());
     }
 
     /**

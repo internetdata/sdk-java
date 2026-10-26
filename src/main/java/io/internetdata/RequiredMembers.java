@@ -61,8 +61,8 @@ final class RequiredMembers extends BeanDeserializerModifier {
             Download.class, List.of("dataset_id", "format", "outcome", "sample", "open", "created"));
 
     /**
-     * The mapper every answer is read with: no scalar read from another JSON type, and this module.
-     * A date still reads from a string, which is its own shape rather than a coercion.
+     * The mapper every answer is read with: no scalar read from another JSON type, dates read as RFC
+     * 3339 alone, and this module.
      */
     static ObjectMapper configure(ObjectMapper mapper) {
         for (LogicalType type : List.of(LogicalType.Integer, LogicalType.Float, LogicalType.Boolean)) {
@@ -76,7 +76,7 @@ final class RequiredMembers extends BeanDeserializerModifier {
         }
         SimpleModule module = new SimpleModule("internetdata-required-members");
         module.setDeserializerModifier(new RequiredMembers());
-        return mapper.registerModule(module);
+        return mapper.registerModule(Rfc3339.module()).registerModule(module);
     }
 
     @Override
