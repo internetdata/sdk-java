@@ -36,7 +36,7 @@ import java.util.Optional;
  * The published library against a real deployment.
  *
  * <p>The transfer is budgeted before it starts. {@code metadata} publishes a size per format, and
- * that size is checked against the ceiling below FIRST, so a mistaken database id can never quietly
+ * that size is checked against the ceiling below FIRST, so a mistaken database ID can never quietly
  * pull one of the multi-gigabyte databases through CI. The CI organization is licensed only for the
  * smallest published databases, but the ceiling does not depend on that staying true.
  */
@@ -65,7 +65,7 @@ class DatabaseTest {
     }
 
     /**
-     * A license covers a database FAMILY, and the ids a transfer takes hang off {@code versions}.
+     * A license covers a database FAMILY, and the IDs a transfer takes hang off {@code versions}.
      *
      * <p>Also the visibility contract from the other side: the listing carries families this
      * organization does NOT license, because {@code standing} is how a customer discovers what else
@@ -212,7 +212,7 @@ class DatabaseTest {
         return catalog;
     }
 
-    /** The first version id of a visible family this organization does not license. */
+    /** The first version ID of a visible family this organization does not license. */
     private static Optional<String> unlicensedId() {
         return catalog().stream()
                 .filter(f -> f.getStanding() != Standing.LICENSED)

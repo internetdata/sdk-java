@@ -64,7 +64,7 @@ public final class DatabaseApi {
      * This is the server's answer for this key, so a listing held from one key is not an answer
      * for another. Nothing here reconstructs it, caches it, or reuses one key's listing for another.
      *
-     * <p>A license covers a FAMILY while a transfer names a version, so the ids the other methods
+     * <p>A license covers a FAMILY while a transfer names a version, so the IDs the other methods
      * take come from {@link Database#getVersions()} rather than from {@link Database#getBase()}.
      */
     public List<Database> list() {

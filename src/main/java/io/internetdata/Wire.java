@@ -141,7 +141,7 @@ final class Wire {
                 return retryAfter == null ? ErrorKind.QUOTA_EXCEEDED : ErrorKind.RATE_LIMITED;
             default:
                 // Any other 4xx is a CLIENT error. Falling through to SERVER_ERROR would make it
-                // retryable, so a misspelled database id would be retried twice before failing.
+                // retryable, so a misspelled database ID would be retried twice before failing.
                 // Classified on the RANGE rather than an enumerated list, which is the mistake the
                 // shared corpus exists to catch. Only 5xx and transport failures are worth a retry.
                 return status < 500 ? ErrorKind.BAD_REQUEST : ErrorKind.SERVER_ERROR;

@@ -63,7 +63,7 @@ final class StubHttpClient extends HttpClient {
         this.responder = responder;
     }
 
-    /** Answers the given paths, and rejects anything else the way the API would an unknown id. */
+    /** Answers the given paths, and rejects anything else the way the API would an unknown ID. */
     static StubHttpClient of(Map<String, Route> routes) {
         Map<String, Route> table = new HashMap<>(routes);
         return new StubHttpClient(path -> table.getOrDefault(path,

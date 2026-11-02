@@ -21,7 +21,7 @@ import java.util.List;
  * could assert, and a key in a pull-request workflow is a key in a public log.
  *
  * <p>Nothing is DOWNLOADED here on purpose: metadata is what says how big a database is, and a
- * suite that transfers before it reads that can pull gigabytes from one mistyped id. The
+ * suite that transfers before it reads that can pull gigabytes from one mistyped ID. The
  * integration suite does the real transfer, against a key licensed only for the smallest databases.
  */
 @EnabledIfEnvironmentVariable(named = "INTERNETDATA_LIVE", matches = "1")

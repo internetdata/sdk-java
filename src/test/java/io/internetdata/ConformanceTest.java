@@ -60,7 +60,7 @@ class ConformanceTest {
      * differ only by {@code Retry-After}.
      *
      * <p>Three of the first four VPNDetection SDKs mapped 400/401/403/429 and let everything else
-     * fall through to a retryable {@code server_error}, so a misspelled database id was retried
+     * fall through to a retryable {@code server_error}, so a misspelled database ID was retried
      * twice before failing. Classification is on the RANGE, and this is what pins it.
      */
     @Test
@@ -546,8 +546,8 @@ class ConformanceTest {
      *
      * <p>A database built for one customer is ABSENT from another organization's listing rather
      * than shown as unlicensed, so the listing is the server's answer and is not the same for every
-     * key. The corpus names the rules by id and deliberately names no private database, because it
-     * is committed into public repositories; each id has to reach a handler here, so a rule added
+     * key. The corpus names the rules by ID and deliberately names no private database, because it
+     * is committed into public repositories; each ID has to reach a handler here, so a rule added
      * to the corpus turns this red rather than passing unnoticed.
      */
     @Test
@@ -595,10 +595,10 @@ class ConformanceTest {
     }
 
     /**
-     * No database id is written into the library at all, so there is no second source a listing
+     * No database ID is written into the library at all, so there is no second source a listing
      * could be reconstructed from.
      *
-     * <p>Checked against the sources rather than argued: an id looks like {@code <family>_v<n>}, and
+     * <p>Checked against the sources rather than argued: an ID looks like {@code <family>_v<n>}, and
      * finding one in a string literal under src/main is what a compiled-in catalog would look like.
      */
     private static void noCatalogIsCompiledIntoTheClient() throws AssertionError {

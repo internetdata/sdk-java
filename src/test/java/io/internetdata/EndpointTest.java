@@ -27,8 +27,8 @@ class EndpointTest {
                 "api/v2/database/checksum", StubHttpClient.Route.ok("{\"id\": \"bogon_ip_v1\","
                         + " \"format\": \"csvgz\", \"checksums\": {\"md5\": \"m\", \"sha1\": \"s1\","
                         + " \"sha256\": \"s256\", \"sha512\": \"s512\"}}"),
-                // A license is held against the FAMILY, and the ids a transfer takes hang off
-                // `versions`. Reading an id from the top level is how a listing comes to answer
+                // A license is held against the FAMILY, and the IDs a transfer takes hang off
+                // `versions`. Reading an ID from the top level is how a listing comes to answer
                 // objects whose every field is empty.
                 "api/v2/database/list", StubHttpClient.Route.ok(
                         "{\"databases\": [{\"base\": \"bogon_ip\", \"name\": \"Bogon IP\","
