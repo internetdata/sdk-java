@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.6.3 - 2026-11-03
+
+### Fixes
+
+- Re-pin the spec to 2026.11.02: ID and IDs in its descriptions ([`5c974ee`](https://github.com/internetdata/sdk-java/commit/5c974ee9ed352f7748c62994dad4e1035ede8e2b))
+- Write ID and IDs in prose, never id or ids ([`41af5ee`](https://github.com/internetdata/sdk-java/commit/41af5ee116a1ab16ce9b39ff931226c2d1f0f891))
+
 ## 2.6.2 - 2026-10-26
 
 ### Fixes
