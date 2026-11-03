@@ -85,7 +85,7 @@ class DatabaseTest {
             assertNotNull(family.getSummary(), family.getBase() + " carries no summary");
             assertNotNull(family.getStanding(), family.getBase() + " carries no standing");
             for (var version : family.getVersions()) {
-                assertNotNull(version.getId(), family.getBase() + " has a version with no id");
+                assertNotNull(version.getId(), family.getBase() + " has a version with no ID");
                 assertTrue(version.getVersion() > 0, version.getId() + " has no version number");
                 assertFalse(version.getFormats().isEmpty(), version.getId() + " carries no formats");
             }
@@ -196,7 +196,7 @@ class DatabaseTest {
 
         assertTrue(attempts.size() <= 5, "the limit was ignored");
         for (Download attempt : attempts) {
-            assertNotNull(attempt.getDatasetId(), "an attempt carries no database id");
+            assertNotNull(attempt.getDatasetId(), "an attempt carries no database ID");
             assertNotNull(attempt.getOutcome(), attempt.getDatasetId() + " carries no outcome");
             assertNotNull(attempt.getCreated(), attempt.getDatasetId() + " carries no timestamp");
         }

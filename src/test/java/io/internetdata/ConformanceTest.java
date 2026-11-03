@@ -614,7 +614,7 @@ class ConformanceTest {
         } catch (IOException e) {
             throw new AssertionError("reading the library sources", e);
         }
-        assertEquals(List.of(), hits, "a database id is compiled into the library");
+        assertEquals(List.of(), hits, "a database ID is compiled into the library");
     }
 
     /**

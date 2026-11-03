@@ -48,7 +48,7 @@ for (Database family : client.database().list()) {
 }
 ```
 
-A license covers a database *family* (`bogon_ip`), while a download names a *version* (`bogon_ip_v1`), so the ids every other method takes come from `getVersions()`.
+A license covers a database *family* (`bogon_ip`), while a download names a *version* (`bogon_ip_v1`), so the IDs every other method takes come from `getVersions()`.
 
 `getStanding()` is `LICENSED` for a live grant, `EXPIRED` for one whose term has ended, and `UNLICENSED` for a database published but never bought, which is how you discover what else exists.
 

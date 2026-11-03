@@ -38,7 +38,7 @@ class LiveTest {
             assertNotNull(family.getName(), family.getBase() + " carries no name");
             assertNotNull(family.getStanding(), family.getBase() + " carries no standing");
             family.getVersions().forEach(version -> {
-                assertNotNull(version.getId(), family.getBase() + " has a version with no id");
+                assertNotNull(version.getId(), family.getBase() + " has a version with no ID");
                 assertTrue(version.getVersion() > 0, version.getId() + " has no version number");
                 assertFalse(version.getFormats().isEmpty(), version.getId() + " carries no formats");
             });
