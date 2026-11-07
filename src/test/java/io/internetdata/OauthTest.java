@@ -322,6 +322,26 @@ class OauthTest {
         assertEquals(0, http.sent.size(), "a request went out at the deadline");
     }
 
+    // No corpus case, whose clock spends exactly what each wait asks. The system sleep never woke
+    // short in 240 real-clock polls on 2.6.3, but a wait cut to the deadline, or ending at it, read
+    // the clock again, so a timer waking short of it would have asked once more.
+    @Test
+    void aWaitThatRunsToTheDeadlineIsFollowedByNoRequestWheneverTheTimerWakes() {
+        for (int interval : new int[] {5, 3}) {
+            OauthStub http = OauthStub.answering(
+                    Collections.nCopies(OauthStub.CAP, Answer.of(400, "{\"error\": \"authorization_pending\"}")));
+            FakeTicker ticker = new FakeTicker(Duration.ofNanos(500_000));
+            OauthApi api = clientOn(http).build().oauth().ticking(ticker);
+
+            OauthExpiredTokenException ended = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> assertThrows(
+                    OauthExpiredTokenException.class, () -> api.pollDeviceToken(CLIENT_ID, device(interval, 3))));
+
+            assertTrue(ended.statusCode().isEmpty(), "a local expiry carries no status");
+            assertEquals(0, http.sent.size(), "interval " + interval + ": a request went out at the deadline");
+            assertEquals(List.of(3L), ticker.waits, "interval " + interval);
+        }
+    }
+
     @Test
     void aPerCallTimeoutBelowTheClientsBoundsEveryOauthRequest() {
         OauthStub http = OauthStub.hanging();
@@ -699,7 +719,8 @@ class OauthTest {
     }
 
     /**
-     * A clock that moves only when the poll sleeps, keeping every sleep in seconds.
+     * A clock that moves only when the poll sleeps, keeping every sleep in seconds. A non-zero
+     * {@code shortBy} wakes each sleep of at least a millisecond that much early.
      *
      * <p>Bounded like the stub: past its cap a sleep or a clock read never returns, so a poll that
      * loops fails its test from outside rather than spinning.
@@ -710,6 +731,15 @@ class OauthTest {
         final List<Long> waits = Collections.synchronizedList(new ArrayList<>());
         private final AtomicLong now = new AtomicLong();
         private final AtomicInteger reads = new AtomicInteger();
+        private final long shortBy;
+
+        FakeTicker() {
+            this(Duration.ZERO);
+        }
+
+        FakeTicker(Duration shortBy) {
+            this.shortBy = shortBy.toNanos();
+        }
 
         @Override
         public long nanoTime() {
@@ -727,7 +757,7 @@ class OauthTest {
                 new CountDownLatch(1).await();
             }
             waits.add(wait.toSeconds());
-            now.addAndGet(wait.toNanos());
+            now.addAndGet(wait.compareTo(Duration.ofMillis(1)) >= 0 ? wait.toNanos() - shortBy : wait.toNanos());
         }
     }
 
