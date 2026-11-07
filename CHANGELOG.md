@@ -2,6 +2,16 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.7.0 - 2026-11-07
+
+### Features
+
+- Download a named build: downloadUrl, download and downloadBytes take a build ([`f028cb9`](https://github.com/internetdata/sdk-java/commit/f028cb9a1a5ead76bf0c353ab203c0335d6fab63))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.05: the download's build parameter ([`3fb0533`](https://github.com/internetdata/sdk-java/commit/3fb0533eeef9f8e897450315aa4dc36107369ecb))
+
 ## 2.6.4 - 2026-11-07
 
 ### Fixes
