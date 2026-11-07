@@ -42,6 +42,42 @@ class DownloadTest {
     }
 
     @Test
+    void aBuildGoesOnTheDownloadRequestAndNoneWithoutOne(@TempDir Path dir) {
+        StubHttpClient http = transferring(PAYLOAD.length);
+        DatabaseApi database = client(http).database();
+        String named = "20261105.0t53s5";
+
+        database.downloadUrl("bogon_ip_v1", DatabaseFormat.CSVGZ, named);
+        database.downloadBytes("bogon_ip_v1", DatabaseFormat.CSVGZ, named);
+        database.download("bogon_ip_v1", DatabaseFormat.CSVGZ, dir.resolve("built.csv.gz"), named);
+        database.downloadUrl("bogon_ip_v1", DatabaseFormat.CSVGZ, "");
+        database.downloadBytes("bogon_ip_v1", DatabaseFormat.CSVGZ);
+
+        java.util.List<String> asked = http.calls.stream()
+                .filter(c -> c.contains("/api/v2/database/download"))
+                .map(c -> java.net.URI.create(c).getQuery())
+                .toList();
+        String withBuild = "id=bogon_ip_v1&format=csvgz&build=" + named;
+        String live = "id=bogon_ip_v1&format=csvgz";
+        assertEquals(java.util.List.of(withBuild, withBuild, withBuild, live, live), asked);
+    }
+
+    @Test
+    void aGoneBuildIsABadRequestAskedOnce() {
+        StubHttpClient http = StubHttpClient.of(Map.of(
+                "api/v2/database/download", new StubHttpClient.Route(410,
+                        "{\"rc\": \"BUILD_GONE\"}", Map.of())));
+
+        InternetDataException err = assertThrows(InternetDataException.class,
+                () -> client(http).database().downloadUrl("bogon_ip_v1", DatabaseFormat.CSVGZ, "20261029.aaaaaa"));
+
+        assertEquals(ErrorKind.BAD_REQUEST, err.kind());
+        assertEquals("BUILD_GONE", err.getMessage());
+        assertFalse(err.retryable());
+        assertEquals(1, http.calls.size(), "a 4xx was retried");
+    }
+
+    @Test
     void aDeniedDownloadCarriesTheApisOwnCode() {
         StubHttpClient http = StubHttpClient.of(Map.of(
                 "api/v2/database/download", new StubHttpClient.Route(403,

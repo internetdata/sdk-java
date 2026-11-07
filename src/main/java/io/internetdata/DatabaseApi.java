@@ -121,13 +121,27 @@ public final class DatabaseApi {
      * no API key; a transfer already running is not interrupted when it lapses.
      */
     public String downloadUrl(String id, DatabaseFormat format) {
+        return downloadUrl(id, format, null);
+    }
+
+    /**
+     * The time-limited URL for one build of a database file.
+     *
+     * <p>{@code build} names the build as a {@code database.updated} webhook gives it
+     * ({@code 20261105.0t53s5}), so the file is the one whose {@code sha256} the webhook carries.
+     * Null or empty is the build that is live. A build is kept 7 days; past that the call throws
+     * {@link ErrorKind#BAD_REQUEST} with the message {@code BUILD_GONE}.
+     */
+    public String downloadUrl(String id, DatabaseFormat format, String build) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(format, "format");
+        String named = build == null || build.isEmpty() ? null : build;
         return Wire.execute(retries, () -> {
             int status;
             try {
                 status = api.downloadDatabaseV2WithHttpInfo(id,
-                        io.internetdata.model.DatabaseFormat.fromValue(format.wireValue())).getStatusCode();
+                        io.internetdata.model.DatabaseFormat.fromValue(format.wireValue()), named)
+                        .getStatusCode();
             } catch (ApiException e) {
                 // The generated method treats any non-2xx as a failure, so the SUCCESS case for
                 // this endpoint arrives as an exception carrying the Location header.
@@ -154,8 +168,16 @@ public final class DatabaseApi {
      * as a whole database, and no leftover either.
      */
     public long download(String id, DatabaseFormat format, Path destination) {
+        return download(id, format, destination, null);
+    }
+
+    /**
+     * Download one build of a database file to {@code destination}, as
+     * {@link #downloadUrl(String, DatabaseFormat, String)} names it.
+     */
+    public long download(String id, DatabaseFormat format, Path destination, String build) {
         Objects.requireNonNull(destination, "destination");
-        HttpResponse<InputStream> response = fetchDatabaseFile(id, format);
+        HttpResponse<InputStream> response = fetchDatabaseFile(id, format, build);
         Path partial = destination.resolveSibling(destination.getFileName() + ".part");
         try {
             long written;
@@ -189,7 +211,15 @@ public final class DatabaseApi {
      * not checked against {@link #metadata(String)}.
      */
     public byte[] downloadBytes(String id, DatabaseFormat format) {
-        HttpResponse<InputStream> response = fetchDatabaseFile(id, format);
+        return downloadBytes(id, format, null);
+    }
+
+    /**
+     * Download one build of a database file and hand back its bytes, as
+     * {@link #downloadUrl(String, DatabaseFormat, String)} names it.
+     */
+    public byte[] downloadBytes(String id, DatabaseFormat format, String build) {
+        HttpResponse<InputStream> response = fetchDatabaseFile(id, format, build);
         try (InputStream body = response.body()) {
             long declared = declaredLength(response);
             // Allocated once from the declared length where there is one: readAllBytes grows by
@@ -217,9 +247,9 @@ public final class DatabaseApi {
      * {@code Authorization} when the redirect crosses origins but FORWARDS it when it does not. So
      * "the JDK strips it" is not something a library can lean on.
      */
-    private HttpResponse<InputStream> fetchDatabaseFile(String id, DatabaseFormat format) {
+    private HttpResponse<InputStream> fetchDatabaseFile(String id, DatabaseFormat format, String build) {
         URI url;
-        String location = downloadUrl(id, format);
+        String location = downloadUrl(id, format, build);
         try {
             url = new URI(location);
         } catch (URISyntaxException e) {

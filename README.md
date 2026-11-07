@@ -95,6 +95,14 @@ byte[] raw = client.database().downloadBytes("bogon_asn_v1", DatabaseFormat.CSVG
 
 `downloadBytes` holds the whole file in memory, and the catalog spans a few hundred bytes to several gigabytes, so check `client.database().metadata(...).getSize()` before reaching for it and use `download` for anything you have not measured.
 
+Each of the three downloads the build that is live unless you name one. A `database.updated` webhook names the build it announces and carries its `sha256`, so a receiver that downloads after the next publish asks for that build to get the file the hash is of:
+
+```java
+client.database().download("vpn_ip_v1", DatabaseFormat.MMDB, Path.of("vpn_ip_v1.mmdb"), build);
+```
+
+A build is kept 7 days. Past that the call throws `BAD_REQUEST` with the message `BUILD_GONE`, and downloading without a build fetches the live one.
+
 ### Verifying a download
 
 ```java
