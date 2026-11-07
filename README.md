@@ -13,12 +13,12 @@ The library lists the IP databases your organization is licensed for, tells you 
 <dependency>
     <groupId>io.internetdata</groupId>
     <artifactId>internetdata</artifactId>
-    <version>2.6.3</version>
+    <version>2.6.4</version>
 </dependency>
 ```
 
 ```groovy
-implementation 'io.internetdata:internetdata:2.6.3'
+implementation 'io.internetdata:internetdata:2.6.4'
 ```
 
 Requires Java 17 or newer. HTTP is the JDK's own `java.net.http.HttpClient`, so there is no third-party HTTP stack to reconcile with yours.

@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.6.4 - 2026-11-07
+
+### Fixes
+
+- End the device poll at its deadline without asking again ([`782cf3b`](https://github.com/internetdata/sdk-java/commit/782cf3b65f50e6c6dfb764545092e527485d6235))
+
 ## 2.6.3 - 2026-11-03
 
 ### Fixes
