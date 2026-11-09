@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.7.1 - 2026-11-09
+
+### Fixes
+
+- Re-pin the spec to 2026.11.08: the token and revoke descriptions ([`0fcca89`](https://github.com/internetdata/sdk-java/commit/0fcca893767f505e983793c0ebea99a1707f38cf))
+
 ## 2.7.0 - 2026-11-07
 
 ### Features
