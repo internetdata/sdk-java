@@ -94,9 +94,16 @@ final class Wire {
     }
 
     /**
+     * The answer of a 2xx. An empty body or {@code null} is no answer at all: a retried
+     * {@code SERVER_ERROR} carrying the status, never a null handed back as if it were the answer.
+     */
+    static <T> T answer(ApiResponse<T> response, String name) {
+        return member(response, Function.identity(), name);
+    }
+
+    /**
      * The member of a 2xx answer a call returns. An answer without it - {@code {}}, {@code null}, an
-     * empty body - is no answer at all: a retried {@code SERVER_ERROR} carrying the status, never a
-     * null handed back as if it were the answer.
+     * empty body - is no answer at all, and fails as {@link #answer} does.
      */
     static <T, M> M member(ApiResponse<T> response, Function<T, M> member, String name) {
         T data = response.getData();
@@ -111,7 +118,8 @@ final class Wire {
     static InternetDataException translate(ApiException e) {
         int status = e.getCode();
         // The generated layer decodes only once a 2xx has arrived, and drops its status when the body
-        // is not the JSON it expects; every call it decodes answers 200.
+        // is not the JSON it expects: a proxy's page, a cut-off body, an answer without a member it
+        // must carry. Every call it decodes answers 200.
         if (status == 0 && e.getCause() instanceof JsonProcessingException) {
             return new InternetDataException(ErrorKind.SERVER_ERROR,
                     "the API did not answer with the JSON this call reads", 200, null, e.getCause());
@@ -121,6 +129,15 @@ final class Wire {
         }
         Duration retryAfter = retryAfterOf(e);
         return new InternetDataException(kindOf(status, retryAfter), messageOf(e), status, retryAfter, null);
+    }
+
+    /**
+     * A per-entry failure inside a successful batch: the status the single lookup would have
+     * answered, and its message, with no headers at all - so a 429 here is a spent allowance, which
+     * is the only kind the API puts in an entry.
+     */
+    static InternetDataException fromEntry(int status, String message) {
+        return new InternetDataException(kindOf(status, null), message, status, null, null);
     }
 
     /**
@@ -148,15 +165,19 @@ final class Wire {
         }
     }
 
-    // Every v2 refusal is `{"rc": "SOMETHING"}`, and that code is the whole message: it says which
-    // 403 this is, which the status cannot.
+    // The two APIs behind this host answer with different envelopes: a lookup refusal is
+    // `{"error": "..."}`, a database refusal `{"rc": "SOMETHING"}`, whose code says which 403 this
+    // is, which the status cannot. Both are read here so a caller never has to know which one they hit.
     private static String messageOf(ApiException e) {
         String body = e.getResponseBody();
         if (body != null && !body.isBlank()) {
             try {
-                JsonNode rc = MAPPER.readTree(body).get("rc");
-                if (rc != null && rc.isTextual()) {
-                    return rc.asText();
+                JsonNode root = MAPPER.readTree(body);
+                for (String field : new String[] {"error", "rc"}) {
+                    JsonNode value = root.get(field);
+                    if (value != null && value.isTextual()) {
+                        return value.asText();
+                    }
                 }
             } catch (Exception ignored) {
                 // A non-JSON body is not worth failing over; fall through to the generic message.

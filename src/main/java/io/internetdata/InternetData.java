@@ -1,14 +1,40 @@
 package io.internetdata;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import io.internetdata.api.EntitlementApi;
+import io.internetdata.api.LookupApi;
 import io.internetdata.internal.ApiClient;
+import io.internetdata.model.BatchLookupError;
+import io.internetdata.model.BatchLookupRequest;
+import io.internetdata.model.BatchLookupResponse;
+import io.internetdata.model.BatchLookupResponseResultsValue;
+import io.internetdata.model.Entitlement;
+import io.internetdata.model.LookupResponse;
 
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.net.ssl.SSLContext;
@@ -17,39 +43,67 @@ import javax.net.ssl.SSLParameters;
 /**
  * A client for the InternetData API.
  *
- * <p>Build one with {@link #builder()} and keep it: it owns a connection pool, which is wasted if
- * it is rebuilt per request. It is thread safe.
+ * <p>Build one with {@link #builder()} and keep it: it owns a connection pool, a cache and a
+ * thread pool, all of which are wasted if it is rebuilt per request. It is thread safe.
+ *
+ * <p>The cache is per instance, so an answer is never shared between two clients holding different
+ * API keys and therefore entitled to different fields.
  *
  * <p>The database endpoints hang off {@link #database()}, and the OAuth sign-in off {@link #oauth()}.
- * Every database published today is licensed, so those calls want an API key carrying the
- * {@code db.download} scope; the key is optional nonetheless, and a client built without one sends
- * no {@code Authorization} header at all. What this API serves without a license is a product
- * decision, not the client's to refuse.
+ * The key is optional: a lookup without one is answered on Unlimited, the free plan, and a client
+ * built without one sends no {@code Authorization} header at all.
  */
-public final class InternetData {
+public final class InternetData implements AutoCloseable {
     public static final String DEFAULT_BASE_URL = "https://api.internetdata.io";
+
+    // The most addresses POST /batch takes in one call; a larger batch is sent in chunks of this
+    // size.
+    private static final int BATCH_MAX = 1000;
 
     // The OAuth server's host is the API's apex: `api.` dropped and `api-<env>.` becoming `<env>.`.
     private static final Pattern API_HOST = Pattern.compile("(?i)(https?://)api(?:-([^./:@]+))?\\.(.+)");
 
+    private final ApiClient api;
+    private final LookupApi lookupApi;
+    private final EntitlementApi entitlementApi;
     private final DatabaseApi database;
     private final OauthApi oauth;
+    private final Cache<String, Result> cache;
+    // The requests in the air, by address, so concurrent misses for one address share one
+    // request: a lookup's, or the batch chunk carrying it. Only used with a cache, since without
+    // one every lookup is served. Guarded by synchronizing on the map itself.
+    private final Map<String, CompletableFuture<Result>> flights = new HashMap<>();
+    private final Semaphore gate;
+    private final ExecutorService ownedExecutor;
+    private final Executor executor;
+    private final int retries;
+    private final Duration requestTimeout;
 
     private InternetData(Builder b) {
         HttpClient http = new DeadlineHttpClient(b.httpClient != null ? b.httpClient : defaultHttpClient());
-        ApiClient client = new ApiClient(new FixedHttpClientBuilder(http),
+        this.api = new ApiClient(new FixedHttpClientBuilder(http),
                 RequiredMembers.configure(ApiClient.createDefaultObjectMapper()), b.baseUrl);
-        client.setReadTimeout(b.requestTimeout);
+        api.setReadTimeout(b.requestTimeout);
         if (b.apiKey != null) {
-            // The `native` generator emits no auth plumbing at all - it ignores the spec's
-            // securitySchemes - so the key goes on by hand. Skipped entirely without one:
-            // `Authorization: Bearer ` with nothing after it reads as a wrong key, not none.
-            client.setRequestInterceptor(rb -> rb.header("Authorization", "Bearer " + b.apiKey));
+            // The `native` generator emits no auth plumbing at all, so the key goes on by hand.
+            // Skipped entirely without one: `Authorization: Bearer ` with nothing after it reads
+            // as a wrong key, not none.
+            api.setRequestInterceptor(rb -> rb.header("Authorization", "Bearer " + b.apiKey));
         }
 
-        this.database = new DatabaseApi(client, b.retries);
-        this.oauth = new OauthApi(http, client.getObjectMapper(), apexOf(b.baseUrl), b.retries,
+        this.lookupApi = new LookupApi(api);
+        this.entitlementApi = new EntitlementApi(api);
+        this.retries = b.retries;
+        this.requestTimeout = b.requestTimeout;
+        this.database = new DatabaseApi(api, b.retries);
+        this.oauth = new OauthApi(http, api.getObjectMapper(), apexOf(b.baseUrl), b.retries,
                 b.requestTimeout, OauthApi.SYSTEM);
+        this.cache = b.cacheEnabled
+                ? Caffeine.newBuilder().maximumSize(b.cacheSize).expireAfterWrite(b.cacheTtl).build()
+                : null;
+        this.gate = new Semaphore(b.concurrency);
+        this.ownedExecutor = b.executor == null ? Executors.newCachedThreadPool(daemonThreads()) : null;
+        this.executor = b.executor != null ? b.executor : this.ownedExecutor;
     }
 
     public static Builder builder() {
@@ -61,13 +115,389 @@ public final class InternetData {
         return builder().apiKey(apiKey).build();
     }
 
-    /** A client with every default and no key, which reaches only what needs no license. */
+    /** A client without a key, with every default. */
     public static InternetData create() {
         return builder().build();
     }
 
     /**
-     * The database endpoints: what you may see, what is inside one, and how to fetch it.
+     * Whether an address is private, loopback, link-local, documentation, multicast or otherwise
+     * not routable, including the IPv6 equivalents and the 6to4 and Teredo ranges.
+     *
+     * <p>These are the addresses {@link #lookup(String)} answers locally. Exposed here so the check
+     * is reachable from the client you already hold; {@link Bogon#isBogon(String)} is the same
+     * check without one.
+     */
+    public boolean isBogon(String ip) {
+        return Bogon.isBogon(ip);
+    }
+
+    /** What every database says about one address, with the client's defaults. */
+    public Result lookup(String ip) {
+        return lookup(ip, new LookupOptions());
+    }
+
+    /**
+     * What every database says about one address.
+     *
+     * <p>A bogon is answered locally and never reaches the network. Everything else is served, then
+     * cached for this instance.
+     *
+     * @throws InternetDataException {@link ErrorKind#BAD_REQUEST}, before anything is sent, for a
+     *     string that is not an IP address: look an AS up with {@link #lookupAsn(long)} and a domain
+     *     with {@link #lookupDomain(String)}.
+     */
+    public Result lookup(String ip, LookupOptions options) {
+        Objects.requireNonNull(ip, "ip");
+        Objects.requireNonNull(options, "options");
+        // Judged, cached and sent as the IPv4 address it carries, if it is mapped.
+        String carried = Bogon.unmapped(ip);
+        if (!Bogon.isAddress(carried)) {
+            // The API answers an AS or a domain at this path too, as an answer this call cannot
+            // read, so one sent here would come back as three retried SERVER_ERRORs.
+            throw new InternetDataException(ErrorKind.BAD_REQUEST, "'" + ip
+                    + "' is not an IP address: look an AS up with lookupAsn and a domain with lookupDomain");
+        }
+        if (Bogon.isBogon(carried)) {
+            return Result.bogon(carried);
+        }
+        if (cache == null) {
+            return fetch(carried, options);
+        }
+        CompletableFuture<Result> led;
+        while (true) {
+            CompletableFuture<Result> flight;
+            synchronized (flights) {
+                // Checked under the lock: a request that lands caches its answer before it leaves
+                // the board, so a miss here with nothing on the board means nobody is asking.
+                Result hit = cache.getIfPresent(carried);
+                if (hit != null) {
+                    return hit;
+                }
+                flight = flights.get(carried);
+                if (flight == null) {
+                    led = new CompletableFuture<>();
+                    flights.put(carried, led);
+                    break;
+                }
+            }
+            try {
+                return await(flight);
+            } catch (CancellationException e) {
+                // The call that led it was interrupted, which is no answer for this one: ask again.
+            }
+        }
+        try {
+            Result result = fetch(carried, options);
+            land(carried, led, result, null);
+            return result;
+        } catch (RuntimeException | Error e) {
+            land(carried, led, null, e);
+            throw e;
+        }
+    }
+
+    // One GET for one address, cached once it answers.
+    private Result fetch(String ip, LookupOptions options) {
+        LookupApi wire = lookupApi(options);
+        Result result = Wire.execute(retries(options),
+                () -> Result.of(Wire.answer(wire.lookupIpWithHttpInfo(ip), "lookup answer")));
+        if (cache != null) {
+            cache.put(ip, result);
+        }
+        return result;
+    }
+
+    // Waits for a request another call is making, interruptibly: its failure is this call's
+    // failure, and an interrupted leader surfaces as a CancellationException, meaning ask again.
+    private static Result await(CompletableFuture<Result> flight) {
+        try {
+            return flight.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InternetDataException(ErrorKind.NETWORK, "interrupted while waiting for a lookup", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new InternetDataException(ErrorKind.NETWORK, String.valueOf(cause), cause);
+        }
+    }
+
+    // Takes a request off the board and hands its outcome to everyone waiting on it. A failure is
+    // passed on and never cached. A leader that failed because its thread was interrupted cancels
+    // the flight instead, which sends each waiter to ask again rather than fail with it. Called
+    // after the answer is cached, so nobody finds the board and the cache both empty for an
+    // address that has just been answered.
+    private void land(String ip, CompletableFuture<Result> flight, Result result, Throwable error) {
+        synchronized (flights) {
+            if (flights.get(ip) == flight) {
+                flights.remove(ip);
+            }
+        }
+        if (result != null) {
+            flight.complete(result);
+        } else if (error == null || Thread.currentThread().isInterrupted()) {
+            flight.cancel(false);
+        } else {
+            flight.completeExceptionally(error);
+        }
+    }
+
+    /** Look up the address this client is calling from, with the client's defaults. */
+    public Result myIp() {
+        return myIp(new LookupOptions());
+    }
+
+    /**
+     * Look up the address this client is calling from.
+     *
+     * <p>The same answer {@code lookup} would give for that address, at the same cost against your
+     * allowance. The address is the one our edge observed, so a call made through a proxy or a VPN
+     * reports the exit it left through - usually the point of asking.
+     *
+     * <p>Deliberately NOT cached. The cache is keyed by address, and which address this is IS the
+     * question: a machine that moves between networks would otherwise be told where it used to be.
+     */
+    public Result myIp(LookupOptions options) {
+        Objects.requireNonNull(options, "options");
+        LookupApi wire = lookupApi(options);
+        return Wire.execute(retries(options),
+                () -> Result.of(Wire.answer(wire.lookupMyIpWithHttpInfo(), "lookup answer")));
+    }
+
+    public CompletableFuture<Result> myIpAsync() {
+        return myIpAsync(new LookupOptions());
+    }
+
+    public CompletableFuture<Result> myIpAsync(LookupOptions options) {
+        return CompletableFuture.supplyAsync(() -> myIp(options), executor);
+    }
+
+    /** What this client's key is entitled to, with the client's defaults. */
+    public Entitlement myEntitlement() {
+        return myEntitlement(new LookupOptions());
+    }
+
+    /**
+     * What this client's key is entitled to, and how much of it has been used.
+     *
+     * <p>Named for what it answers rather than {@code me}, which sits one letter from {@code myIp}
+     * and means something quite different: one is which address you are calling FROM, the other is
+     * what the key you are calling WITH may spend.
+     *
+     * <p>Unlike a lookup there is no useful unauthenticated answer, so a client built without an API
+     * key gets an unauthorized error rather than a partial one.
+     *
+     * <p>Usage counts against the ALLOWANCE WINDOW - on a paid plan the anniversary of the
+     * subscription, not the calendar month and not the billing period, and on the free plan the
+     * UTC day - and it is the same number a lookup is gated on. It can lag by a few seconds, because
+     * requests are counted in memory and flushed in aggregate.
+     *
+     * <p>Deliberately NOT cached: the whole point is what has been spent, and a cached answer is a
+     * wrong one within seconds of the next request.
+     */
+    public Entitlement myEntitlement(LookupOptions options) {
+        Objects.requireNonNull(options, "options");
+        ApiClient scoped = scoped(options);
+        EntitlementApi wire = scoped == api ? entitlementApi : new EntitlementApi(scoped);
+        return Wire.execute(retries(options),
+                () -> Wire.answer(wire.myEntitlementWithHttpInfo(), "entitlement"));
+    }
+
+    public CompletableFuture<Entitlement> myEntitlementAsync() {
+        return myEntitlementAsync(new LookupOptions());
+    }
+
+    public CompletableFuture<Entitlement> myEntitlementAsync(LookupOptions options) {
+        return CompletableFuture.supplyAsync(() -> myEntitlement(options), executor);
+    }
+
+    public CompletableFuture<Result> lookupAsync(String ip) {
+        return lookupAsync(ip, new LookupOptions());
+    }
+
+    public CompletableFuture<Result> lookupAsync(String ip, LookupOptions options) {
+        return CompletableFuture.supplyAsync(() -> lookup(ip, options), executor);
+    }
+
+    /** What every database says about one AS, with the client's defaults. */
+    public AsnResult lookupAsn(long asn) {
+        return lookupAsn(asn, new LookupOptions());
+    }
+
+    /**
+     * What every database says about one AS.
+     *
+     * <p>The number is sent as given, and the API refuses one it cannot read as a
+     * {@link ErrorKind#BAD_REQUEST}. Not cached, and not batched.
+     */
+    public AsnResult lookupAsn(long asn, LookupOptions options) {
+        Objects.requireNonNull(options, "options");
+        LookupApi wire = lookupApi(options);
+        String number = Long.toString(asn);
+        return Wire.execute(retries(options),
+                () -> AsnResult.of(Wire.answer(wire.lookupAsnWithHttpInfo(number), "AS answer")));
+    }
+
+    public CompletableFuture<AsnResult> lookupAsnAsync(long asn) {
+        return lookupAsnAsync(asn, new LookupOptions());
+    }
+
+    public CompletableFuture<AsnResult> lookupAsnAsync(long asn, LookupOptions options) {
+        return CompletableFuture.supplyAsync(() -> lookupAsn(asn, options), executor);
+    }
+
+    /** What every database says about one domain, with the client's defaults. */
+    public DomainResult lookupDomain(String domain) {
+        return lookupDomain(domain, new LookupOptions());
+    }
+
+    /**
+     * What every database says about one domain.
+     *
+     * <p>The domain is sent as given, escaped for the path; the API normalizes it, and refuses one
+     * it cannot read as a {@link ErrorKind#BAD_REQUEST}. Not cached, and not batched.
+     */
+    public DomainResult lookupDomain(String domain, LookupOptions options) {
+        Objects.requireNonNull(domain, "domain");
+        Objects.requireNonNull(options, "options");
+        LookupApi wire = lookupApi(options);
+        return Wire.execute(retries(options),
+                () -> DomainResult.of(Wire.answer(wire.lookupDomainWithHttpInfo(domain), "domain answer")));
+    }
+
+    public CompletableFuture<DomainResult> lookupDomainAsync(String domain) {
+        return lookupDomainAsync(domain, new LookupOptions());
+    }
+
+    public CompletableFuture<DomainResult> lookupDomainAsync(String domain, LookupOptions options) {
+        return CompletableFuture.supplyAsync(() -> lookupDomain(domain, options), executor);
+    }
+
+    /** Look many addresses up concurrently, with the client's defaults. */
+    public LinkedHashMap<String, BatchResult> lookupBatch(Collection<String> ips) {
+        return lookupBatch(ips, new BatchOptions());
+    }
+
+    /**
+     * Look many addresses up in as few requests as possible.
+     *
+     * <p>Takes any number of addresses: sending them in chunks the endpoint accepts is this
+     * method's job, not the caller's.
+     *
+     * <p>Bogons are answered locally and cached answers are reused; everything else goes to the
+     * batch endpoint in chunks of up to 1000 addresses, with at most {@code concurrency} chunks in
+     * flight. Keyed by address rather than positional, so duplicates in the input collapse to a
+     * single entry and the caller never has to line two lists up. An address that fails carries its
+     * error as its value, so one bad entry cannot lose the rest of the answers: the API reports a
+     * per-entry failure with the status the single lookup would have answered, and a chunk that
+     * fails as a whole marks every address in it. Iteration order is the order the addresses were
+     * first seen in the input. The batch endpoint needs a paid plan: without a key every address in
+     * a request of two or more carries an {@link ErrorKind#UNAUTHORIZED} error, and a free-plan
+     * key's request of two or more a {@link ErrorKind#BAD_REQUEST} (HTTP 402). A request of one
+     * address is answered as its lookup would be.
+     */
+    public LinkedHashMap<String, BatchResult> lookupBatch(Collection<String> ips, BatchOptions options) {
+        Objects.requireNonNull(ips, "ips");
+        Objects.requireNonNull(options, "options");
+        Integer perCall = options.concurrencyOrNull();
+        if (perCall != null && perCall < 1) {
+            // A semaphore with no permits admits no chunk, so the batch would wait forever.
+            throw new InternetDataException(ErrorKind.BAD_REQUEST,
+                    "concurrency must be at least 1, got " + perCall);
+        }
+        // A per-call concurrency gets its OWN semaphore. Reusing the instance's would silently cap
+        // the override at the client's setting, which passes any test that does not measure peak.
+        Semaphore limit = perCall == null ? gate : new Semaphore(perCall);
+
+        // An IPv4-mapped address is sent as the address it carries, once however many of its
+        // spellings were asked, and answered under each one asked.
+        LinkedHashSet<String> asked = new LinkedHashSet<>(ips);
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String ip : asked) {
+            unique.add(Bogon.unmapped(ip));
+        }
+        Map<String, BatchResult> answers = new HashMap<>();
+        List<String> pending = new ArrayList<>();
+        // An address already in the air is awaited rather than sent again, and every address this
+        // batch sends is boarded before a chunk is built, so a lookup arriving meanwhile awaits the
+        // batch's answer.
+        Map<String, CompletableFuture<Result>> joined = new LinkedHashMap<>();
+        Map<String, CompletableFuture<Result>> boarded = new HashMap<>();
+        for (String ip : unique) {
+            if (Bogon.isBogon(ip)) {
+                answers.put(ip, BatchResult.found(Result.bogon(ip)));
+                continue;
+            }
+            if (cache != null) {
+                synchronized (flights) {
+                    Result hit = cache.getIfPresent(ip);
+                    if (hit != null) {
+                        answers.put(ip, BatchResult.found(hit));
+                        continue;
+                    }
+                    CompletableFuture<Result> inAir = flights.get(ip);
+                    if (inAir != null) {
+                        joined.put(ip, inAir);
+                        continue;
+                    }
+                    CompletableFuture<Result> flight = new CompletableFuture<>();
+                    flights.put(ip, flight);
+                    boarded.put(ip, flight);
+                }
+            }
+            pending.add(ip);
+        }
+
+        LookupApi wire = lookupApi(options);
+        int callRetries = retries(options);
+        try {
+            List<CompletableFuture<Map<String, BatchResult>>> chunks = new ArrayList<>();
+            for (int from = 0; from < pending.size(); from += BATCH_MAX) {
+                List<String> chunk = List.copyOf(pending.subList(from, Math.min(from + BATCH_MAX, pending.size())));
+                chunks.add(submit(limit, chunk, wire, callRetries, boarded));
+            }
+            for (CompletableFuture<Map<String, BatchResult>> chunk : chunks) {
+                answers.putAll(chunk.join());
+            }
+        } catch (RuntimeException | Error e) {
+            // A chunk that never answered still releases whoever waits on its addresses. Landing
+            // twice is harmless: a flight takes its first outcome only.
+            boarded.forEach((ip, flight) -> land(ip, flight, null, null));
+            throw e;
+        }
+        joined.forEach((ip, flight) -> answers.put(ip, awaitForBatch(ip, flight, options)));
+        LinkedHashMap<String, BatchResult> out = new LinkedHashMap<>();
+        for (String ip : asked) {
+            out.put(ip, answers.get(Bogon.unmapped(ip)));
+        }
+        return out;
+    }
+
+    public CompletableFuture<LinkedHashMap<String, BatchResult>> lookupBatchAsync(Collection<String> ips) {
+        return lookupBatchAsync(ips, new BatchOptions());
+    }
+
+    /**
+     * The same batch off the calling thread.
+     *
+     * <p>A supplied executor must be able to grow: this coordinator occupies one of its threads
+     * while the lookups occupy the rest, so a fixed pool can deadlock. The default executor and a
+     * virtual-thread executor are both fine.
+     */
+    public CompletableFuture<LinkedHashMap<String, BatchResult>> lookupBatchAsync(
+            Collection<String> ips, BatchOptions options) {
+        return CompletableFuture.supplyAsync(() -> lookupBatch(ips, options), executor);
+    }
+
+    /**
+     * The database endpoints: what you may see, what is inside one, and how to fetch it, for keys
+     * that carry the {@code db.download} scope.
      *
      * <p>They sit behind a second level rather than on this class because the sibling VPNDetection
      * library keeps the same calls under {@code client.database()}, and a reader holding both
@@ -88,6 +518,14 @@ public final class InternetData {
      */
     public OauthApi oauth() {
         return oauth;
+    }
+
+    /** Releases the thread pool this client created. A supplied executor is left alone. */
+    @Override
+    public void close() {
+        if (ownedExecutor != null) {
+            ownedExecutor.shutdown();
+        }
     }
 
     // Trimmed, so a key read from a file loses its newline, and blanks alone are no key. A control
@@ -133,6 +571,126 @@ public final class InternetData {
         return value;
     }
 
+    private int retries(LookupOptions options) {
+        Integer perCall = options.retriesOrNull();
+        return perCall != null ? perCall : retries;
+    }
+
+    private LookupApi lookupApi(LookupOptions options) {
+        ApiClient scoped = scoped(options);
+        return scoped == api ? lookupApi : new LookupApi(scoped);
+    }
+
+    // A generated API class reads its timeout once, when it is built, so a per-call timeout needs
+    // an instance of its own. That is a handful of field copies over the SAME HttpClient, not a
+    // second connection pool.
+    private ApiClient scoped(LookupOptions options) {
+        Duration perCall = options.requestTimeoutOrNull();
+        if (perCall == null || perCall.equals(requestTimeout)) {
+            return api;
+        }
+        ApiClient scoped = new ApiClient(new FixedHttpClientBuilder(api.getHttpClient()),
+                api.getObjectMapper(), api.getBaseUri());
+        scoped.setReadTimeout(perCall);
+        scoped.setRequestInterceptor(api.getRequestInterceptor());
+        return scoped;
+    }
+
+    // The permit is taken on the CALLING thread, before the task is handed to the executor, so at
+    // most `concurrency` chunks ever exist. Acquiring inside the task would queue every chunk at
+    // once and let a large batch conjure a thread per chunk.
+    private CompletableFuture<Map<String, BatchResult>> submit(Semaphore limit, List<String> chunk,
+            LookupApi wire, int callRetries, Map<String, CompletableFuture<Result>> boarded) {
+        try {
+            limit.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            // This batch was interrupted: whoever waits on these addresses asks again.
+            for (String ip : chunk) {
+                CompletableFuture<Result> flight = boarded.get(ip);
+                if (flight != null) {
+                    land(ip, flight, null, null);
+                }
+            }
+            return CompletableFuture.completedFuture(failedChunk(chunk,
+                    new InternetDataException(ErrorKind.NETWORK, "interrupted while starting a batch", e)));
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Map<String, BatchResult> answered = lookupChunk(chunk, wire, callRetries);
+                answered.forEach((ip, answer) -> {
+                    CompletableFuture<Result> flight = boarded.get(ip);
+                    if (flight != null) {
+                        land(ip, flight, answer.result().orElse(null), answer.error().orElse(null));
+                    }
+                });
+                return answered;
+            } finally {
+                limit.release();
+            }
+        }, executor);
+    }
+
+    // A batch's answer for an address a lookup was already fetching. Should that lookup be
+    // interrupted, the address is asked again, as a lookup of its own under this batch's options.
+    private BatchResult awaitForBatch(String ip, CompletableFuture<Result> flight, BatchOptions options) {
+        try {
+            try {
+                return BatchResult.found(await(flight));
+            } catch (CancellationException e) {
+                return BatchResult.found(lookup(ip, options));
+            }
+        } catch (InternetDataException e) {
+            return BatchResult.failed(e);
+        }
+    }
+
+    // One POST /batch, mapped back onto the addresses it was asked about. A chunk-level failure -
+    // the call refused, the transport failing, the retries exhausted - becomes every address's
+    // error, exactly as it would have been had each been looked up alone.
+    private Map<String, BatchResult> lookupChunk(List<String> chunk, LookupApi wire, int callRetries) {
+        BatchLookupResponse body;
+        try {
+            body = Wire.execute(callRetries,
+                    () -> Wire.answer(wire.lookupBatchWithHttpInfo(
+                            new BatchLookupRequest().ips(chunk).asns(null).domains(null)), "batch answer"));
+        } catch (InternetDataException e) {
+            return failedChunk(chunk, e);
+        }
+        Map<String, BatchLookupResponseResultsValue> served =
+                body.getResults() == null ? Map.of() : body.getResults();
+        Map<String, BatchLookupError> failed = body.getErrors() == null ? Map.of() : body.getErrors();
+        Map<String, BatchResult> out = new HashMap<>();
+        for (String ip : chunk) {
+            BatchLookupResponseResultsValue value = served.get(ip);
+            if (value != null && value.getActualInstance() instanceof LookupResponse answer) {
+                Result result = Result.of(answer);
+                if (cache != null) {
+                    cache.put(ip, result);
+                }
+                out.put(ip, BatchResult.found(result));
+                continue;
+            }
+            BatchLookupError entry = failed.get(ip);
+            if (entry != null) {
+                int status = entry.getStatus() == null ? 500 : entry.getStatus();
+                out.put(ip, BatchResult.failed(Wire.fromEntry(status, entry.getError())));
+                continue;
+            }
+            out.put(ip, BatchResult.failed(new InternetDataException(
+                    ErrorKind.SERVER_ERROR, "the batch answer did not include " + ip, 200, null, null)));
+        }
+        return out;
+    }
+
+    private static Map<String, BatchResult> failedChunk(List<String> chunk, InternetDataException error) {
+        Map<String, BatchResult> out = new HashMap<>();
+        for (String ip : chunk) {
+            out.put(ip, BatchResult.failed(error));
+        }
+        return out;
+    }
+
     private static HttpClient defaultHttpClient() {
         return HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -141,22 +699,35 @@ public final class InternetData {
                 .build();
     }
 
-    /** Settings for an {@link InternetData} client. Every one of them has a working default. */
+    private static ThreadFactory daemonThreads() {
+        AtomicLong seq = new AtomicLong();
+        return runnable -> {
+            Thread t = new Thread(runnable, "internetdata-" + seq.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
+    }
+
+    /** Settings for a {@link InternetData} client. Every one of them has a working default. */
     public static final class Builder {
         private String apiKey;
         private String baseUrl = DEFAULT_BASE_URL;
+        private boolean cacheEnabled = true;
+        private long cacheSize = 10_000;
+        private Duration cacheTtl = Duration.ofHours(1);
+        private int concurrency = 8;
         private int retries = 2;
         private Duration requestTimeout = Duration.ofSeconds(30);
         private HttpClient httpClient;
+        private Executor executor;
 
         private Builder() {}
 
         /**
-         * Your API key, from the console, carrying the {@code db.download} scope.
-         *
-         * <p>Leave it unset to send no {@code Authorization} header at all, which reaches only
-         * what the API serves without a license. The key is trimmed, and one of blanks alone is no
-         * key.
+         * Your API key, from the console. Without one a lookup is on Unlimited, the free plan, with no
+         * daily or monthly cap, and a batch needs a key on a paid plan; the database endpoints want a
+         * key carrying the {@code db.download} scope. The key is trimmed, and one of blanks alone is
+         * no key.
          *
          * @throws IllegalArgumentException for a key holding a control character or a character
          *     outside ASCII, which no call could send.
@@ -174,11 +745,38 @@ public final class InternetData {
          * which this client does not follow, so every call would fail.
          *
          * <p>The database endpoints answer on the API's host as on the apex, so
-         * {@code https://internetdata.io} still works for them.
+         * {@code https://internetdata.io} still works for them; the lookups need the API's host.
          */
         public Builder baseUrl(String baseUrl) {
             Objects.requireNonNull(baseUrl, "baseUrl");
             this.baseUrl = baseUrl.replaceAll("/+$", "");
+            return this;
+        }
+
+        /** Pass {@code false} to disable caching. */
+        public Builder cacheEnabled(boolean cacheEnabled) {
+            this.cacheEnabled = cacheEnabled;
+            return this;
+        }
+
+        /** Maximum number of addresses held. Default 10000. */
+        public Builder cacheSize(long cacheSize) {
+            this.cacheSize = cacheSize;
+            return this;
+        }
+
+        /** How long an answer stays fresh. Default 1 hour. */
+        public Builder cacheTtl(Duration cacheTtl) {
+            this.cacheTtl = Objects.requireNonNull(cacheTtl, "cacheTtl");
+            return this;
+        }
+
+        /** Concurrent batch requests - chunks of up to 1000 addresses - during a batch. Default 8. */
+        public Builder concurrency(int concurrency) {
+            if (concurrency < 1) {
+                throw new IllegalArgumentException("concurrency must be at least 1");
+            }
+            this.concurrency = concurrency;
             return this;
         }
 
@@ -192,19 +790,16 @@ public final class InternetData {
         }
 
         /**
-         * How long one attempt at an API call may take, response body included, before it is
-         * abandoned as a retryable {@link ErrorKind#NETWORK} failure. Default 30 seconds.
+         * How long one attempt at a call may take, response body included, before it is abandoned
+         * as a retryable {@link ErrorKind#NETWORK} failure. Default 30 seconds.
          *
-         * <p>Per ATTEMPT, so a call that is retried can take longer in total. This does NOT bound a
-         * file transfer, which is unbounded on purpose: a multi-gigabyte download is a different
-         * kind of wait from a metadata request.
-         *
-         * <p>Overridable per OAuth call with {@link OauthOptions#requestTimeout}.
+         * <p>Per ATTEMPT, so a call that is retried can take longer in total. Overridable per call
+         * with {@link LookupOptions#requestTimeout} and {@link OauthOptions#requestTimeout}. A
+         * database transfer is not bounded by it.
          *
          * @throws IllegalArgumentException for zero, a negative duration, or one too long to count
          *     in nanoseconds (about 292 years). Accepted, each would fail EVERY call rather than
-         *     bound it: the JDK refuses a request timeout that is not positive, and the deadline
-         *     this client races is counted in nanoseconds. The same holds for the per-call one.
+         *     bound it, and the same holds for the per-call timeouts.
          */
         public Builder requestTimeout(Duration requestTimeout) {
             this.requestTimeout = positive(requestTimeout, "requestTimeout");
@@ -224,6 +819,17 @@ public final class InternetData {
             return this;
         }
 
+        /**
+         * Where batch and async work runs. Defaults to a cached pool of daemon threads, held to the
+         * configured concurrency by the client's own limiter; on Java 21 and up,
+         * {@code Executors.newVirtualThreadPerTaskExecutor()} is a good substitute. The client will
+         * not shut down an executor it did not create.
+         */
+        public Builder executor(Executor executor) {
+            this.executor = Objects.requireNonNull(executor, "executor");
+            return this;
+        }
+
         public InternetData build() {
             return new InternetData(this);
         }
@@ -234,8 +840,7 @@ public final class InternetData {
      *
      * <p>{@code ApiClient} only accepts a {@link HttpClient.Builder} and calls {@code build()} once
      * per generated API class, so a real builder would produce a second client, with its own
-     * selector thread and connection pool, for every API added here. It also makes a counting test
-     * double injectable.
+     * selector thread and connection pool, for every API added here.
      */
     private static final class FixedHttpClientBuilder implements HttpClient.Builder {
         private final HttpClient client;

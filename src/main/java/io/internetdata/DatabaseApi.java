@@ -28,10 +28,9 @@ import java.util.Objects;
 /**
  * The licensed database endpoints, reached through {@link InternetData#database()}.
  *
- * <p>This is the whole of the InternetData API today, so the second level buys nothing on its own.
- * It is here because the sibling VPNDetection library keeps the same seven calls under
- * {@code client.database()}, and someone holding both clients should not have to remember which
- * brand spells the same operation which way.
+ * <p>The sibling VPNDetection library keeps the same seven calls under {@code client.database()},
+ * and someone holding both clients should not have to remember which brand spells the same
+ * operation which way.
  *
  * <p>Named {@code DatabaseApi} rather than {@code Database} because {@link Database} is already the
  * wire shape for one database family.

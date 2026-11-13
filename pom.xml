@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>internetdata</name>
-    <description>Official Java client library for the InternetData API. List, inspect and download the IP databases your organization licenses.</description>
+    <description>Official Java client library for the InternetData API. Look up IP addresses, AS numbers and domains, and download the IP databases your organization licenses.</description>
     <url>https://internetdata.io</url>
 
     <licenses>
@@ -40,6 +40,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
         <jackson.version>2.22.3</jackson.version>
+        <caffeine.version>3.2.4</caffeine.version>
         <junit.version>5.14.4</junit.version>
     </properties>
 
@@ -63,9 +64,8 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- HTTP is java.net.http.HttpClient, from the JDK. Jackson is the only library a
-             consumer inherits: there is no per-IP lookup here, so no cache and therefore
-             no Caffeine either. -->
+        <!-- HTTP is java.net.http.HttpClient, from the JDK. Jackson and Caffeine are
+             the only libraries a consumer inherits by choice. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -73,6 +73,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
         </dependency>
 
         <!-- The generated sources carry javax.annotation.Nullable and

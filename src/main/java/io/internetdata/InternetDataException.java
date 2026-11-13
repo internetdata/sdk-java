@@ -10,8 +10,9 @@ import java.util.Optional;
  * without being wrapped first. What went wrong is in {@link #kind()}, and {@link #retryable()}
  * answers whether trying again could help.
  *
- * <p>{@link #getMessage()} is the API's own {@code rc} where it sent one, so a refusal says
- * {@code NOT_LICENSED} or {@code LICENSE_EXPIRED} rather than "403".
+ * <p>{@link #getMessage()} is the API's own word where it sent one: a lookup refusal's
+ * {@code error}, and a database refusal's {@code rc}, so it says {@code NOT_LICENSED} or
+ * {@code LICENSE_EXPIRED} rather than "403".
  *
  * <p>Not final, so that {@link OauthException} is one: a catch-all still catches an OAuth refusal.
  */
