@@ -24,6 +24,8 @@ GENERATOR_IMAGE="${GENERATOR_IMAGE:-openapitools/openapi-generator-cli:v7.25.0}"
 # onto a contract they cannot get a key for. The whole spec is still pinned, so
 # the diff shows what the API published, and this list is what is built from it.
 OPERATIONS="listDatabases|downloadDatabaseV2|databaseMetadataV2|databaseChecksumV2|listDownloads"
+# The lookups and the entitlement the client wraps. IAM stays out, as on vpndetection.
+OPERATIONS="${OPERATIONS}|lookupIp|lookupMyIp|lookupAsn|lookupDomain|lookupBatch|myEntitlement"
 
 # `Error` shadows java.lang.Error in any file that imports it, and `Db*` is v1's
 # spelling of a noun v2 writes out in full.
@@ -52,6 +54,17 @@ MODELS="${MODELS}:DatabaseFormat:Standing"
 # operation is generated and no public class ships that nothing calls; the IAM
 # schemas stay out for the same reason.
 MODELS="${MODELS}:OauthMetadata:DeviceAuthorization:TokenResponse:ClientRegistration"
+# What the lookups answer, every schema they reach named, since the allowlist follows no $ref.
+MODELS="${MODELS}:LookupResponse:ClassDetail:ProxyDetail:PubproxyDetail:CarrierDetail:SatelliteDetail"
+MODELS="${MODELS}:SshDetail:SmtpDetail:WebDetail:DnsResolverDetail:BitTorrentDetail"
+MODELS="${MODELS}:Location:Asn:Company:AbuseContact:Whois:Rwhois:HostedDomains"
+MODELS="${MODELS}:AsnLookupResponse:AsnPrefix"
+MODELS="${MODELS}:DomainLookupResponse:DomainDns:DnsAddressRecord:DnsMxRecord:DnsNsRecord:DnsCnameRecord"
+MODELS="${MODELS}:DomainIpRanges:DomainIpRange:DisposableDetail"
+MODELS="${MODELS}:BatchLookupRequest:BatchLookupResponse:BatchLookupResponse_results_value:BatchLookupError"
+MODELS="${MODELS}:Entitlement:EntitlementApikey:EntitlementPlan:EntitlementUsage"
+# The refusal envelopes, which the generated API classes import.
+MODELS="${MODELS}:LookupError:EntitlementError"
 
 # Without these the token response's `mslm:` members come out as getMslmApikeyId/getMslmApikey.
 MEMBERS="mslm:apikey_id=apikeyId,mslm:apikey=apikey"
