@@ -126,6 +126,22 @@ class ConformanceTest {
         }
     }
 
+    // Two spellings of one address are one address: sent once, and answered under each spelling.
+    @Test
+    void aMappedAddressBesideItsPlainFormIsSentOnce() {
+        for (boolean cached : new boolean[] {true, false}) {
+            StubHttpClient http = StubHttpClient.echoing(Duration.ZERO);
+            try (InternetData client = clientOn(http).cacheEnabled(cached).build()) {
+                LinkedHashMap<String, BatchResult> got = client.lookupBatch(
+                        List.of("8.8.8.8", "::ffff:8.8.8.8", "::FFFF:808:808"));
+
+                assertEquals(List.of("8.8.8.8", "::ffff:8.8.8.8", "::FFFF:808:808"), new ArrayList<>(got.keySet()));
+                got.values().forEach(answer -> assertEquals("8.8.8.8", answer.orElseThrow().ip()));
+                assertEquals(List.of("8.8.8.8"), http.batchIps, "cache " + cached + ": the batch body");
+            }
+        }
+    }
+
     /**
      * A bogon is answered locally in the corpus's answer, the address filled in: every flag present
      * and false, every detail object present and empty, and every shared object with every key.
