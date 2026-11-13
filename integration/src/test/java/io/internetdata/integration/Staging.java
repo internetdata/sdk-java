@@ -14,9 +14,12 @@ final class Staging {
      * the license behind the CI key is provisioned there, and a run against production would move
      * real bytes for a credential CI holds.
      */
-    static final String BASE_URL = envOr("INTERNETDATA_BASE_URL", "https://staging.internetdata.io");
+    static final String BASE_URL = envOr("INTERNETDATA_BASE_URL", "https://api-staging.internetdata.io");
 
     static final String HOST = URI.create(BASE_URL).getHost();
+
+    /** Where the OAuth calls go for {@link #BASE_URL}: the API's apex, which issues the tokens. */
+    static final String ISSUER = envOr("INTERNETDATA_ISSUER", "https://staging.internetdata.io");
 
     /** The client, and the recorder underneath it. */
     record Probe(InternetData client, RecordingHttpClient recorder) {}

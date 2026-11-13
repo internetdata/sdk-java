@@ -9,6 +9,8 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 
@@ -25,7 +27,10 @@ import javax.net.ssl.SSLParameters;
  * decision, not the client's to refuse.
  */
 public final class InternetData {
-    public static final String DEFAULT_BASE_URL = "https://internetdata.io";
+    public static final String DEFAULT_BASE_URL = "https://api.internetdata.io";
+
+    // The OAuth server's host is the API's apex: `api.` dropped and `api-<env>.` becoming `<env>.`.
+    private static final Pattern API_HOST = Pattern.compile("(?i)(https?://)api(?:-([^./:@]+))?\\.(.+)");
 
     private final DatabaseApi database;
     private final OauthApi oauth;
@@ -43,8 +48,8 @@ public final class InternetData {
         }
 
         this.database = new DatabaseApi(client, b.retries);
-        this.oauth = new OauthApi(http, client.getObjectMapper(), b.baseUrl, b.retries, b.requestTimeout,
-                OauthApi.SYSTEM);
+        this.oauth = new OauthApi(http, client.getObjectMapper(), apexOf(b.baseUrl), b.retries,
+                b.requestTimeout, OauthApi.SYSTEM);
     }
 
     public static Builder builder() {
@@ -76,6 +81,10 @@ public final class InternetData {
      * Sign a person in with OAuth's device flow, so a program on their machine is handed one of their
      * API keys instead of asking them to paste it. These requests never carry this client's key, so a
      * client built without one serves them the same.
+     *
+     * <p>They go to the API's apex, where the authorization server is: {@code https://internetdata.io}
+     * for the default base URL. A host whose first label is {@code api} loses it, one whose first
+     * label is {@code api-<env>} has it read as {@code <env>}, and any other base URL is used as given.
      */
     public OauthApi oauth() {
         return oauth;
@@ -99,6 +108,15 @@ public final class InternetData {
             throw new IllegalArgumentException("the API key holds a character outside ASCII");
         }
         return trimmed;
+    }
+
+    // The OAuth server's base URL for an API base URL.
+    static String apexOf(String baseUrl) {
+        Matcher m = API_HOST.matcher(baseUrl);
+        if (!m.matches()) {
+            return baseUrl;
+        }
+        return m.group(1) + (m.group(2) == null ? "" : m.group(2) + ".") + m.group(3);
     }
 
     static Duration positive(Duration value, String name) {
@@ -154,6 +172,9 @@ public final class InternetData {
          * <p>A trailing slash is dropped. Every path this client appends begins with one, and a
          * doubled slash is a different path to the server: production answers it with a redirect,
          * which this client does not follow, so every call would fail.
+         *
+         * <p>The database endpoints answer on the API's host as on the apex, so
+         * {@code https://internetdata.io} still works for them.
          */
         public Builder baseUrl(String baseUrl) {
             Objects.requireNonNull(baseUrl, "baseUrl");

@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -84,6 +86,45 @@ class ClientTest {
                 .baseUrl("https://staging.internetdata.io").build().database().list();
 
         assertEquals("https://staging.internetdata.io/api/v2/database/list", http.calls.get(0));
+    }
+
+    /** The database calls answer on the API's host as on the apex. */
+    @Test
+    void theDefaultBaseUrlIsTheApiHost() {
+        StubHttpClient http = StubHttpClient.of(Map.of("api/v2/database/list",
+                StubHttpClient.Route.ok("{\"databases\": []}")));
+
+        InternetData.builder().httpClient(http).build().database().list();
+
+        assertEquals("https://api.internetdata.io", InternetData.DEFAULT_BASE_URL);
+        assertEquals(List.of("https://api.internetdata.io/api/v2/database/list"), http.calls);
+    }
+
+    /**
+     * The authorization server is the API's apex, so the OAuth calls drop {@code api.} from the base
+     * URL and make {@code api-<env>.} {@code <env>.}; any other base URL is theirs as given.
+     */
+    @Test
+    void theOauthCallsGoToTheApexOfTheApiHost() {
+        Map<String, String> apexes = new LinkedHashMap<>();
+        apexes.put(InternetData.DEFAULT_BASE_URL, "https://internetdata.io");
+        apexes.put("https://api-staging.internetdata.io", "https://staging.internetdata.io");
+        apexes.put("https://API.internetdata.io/", "https://internetdata.io");
+        apexes.put("https://internetdata.io", "https://internetdata.io");
+        apexes.put("https://staging.internetdata.io", "https://staging.internetdata.io");
+        apexes.put("http://127.0.0.1:8080", "http://127.0.0.1:8080");
+        apexes.put("https://apis.example.com", "https://apis.example.com");
+        apexes.put("https://api.example.com:8443/prefix", "https://example.com:8443/prefix");
+        apexes.forEach((baseUrl, apex) -> {
+            OauthStub http = OauthStub.answering(OauthStub.Answer.of(503, "{}"));
+            InternetData client = InternetData.builder().httpClient(http).apiKey("k").retries(0)
+                    .baseUrl(baseUrl).build();
+            assertTrue(client.oauth().authorizationUrl("cid", "http://127.0.0.1:8765/callback", "challenge")
+                    .startsWith(apex + "/oauth/authorize?"), baseUrl);
+            assertThrows(InternetDataException.class, () -> client.oauth().metadata(), baseUrl);
+            assertEquals(java.net.URI.create(apex + "/.well-known/oauth-authorization-server"),
+                    http.sent.get(0).uri(), baseUrl);
+        });
     }
 
     @Test

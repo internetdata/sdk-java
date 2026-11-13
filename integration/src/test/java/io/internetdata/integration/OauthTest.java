@@ -27,11 +27,12 @@ class OauthTest {
     private static final String CLIENT_ID = "internetdata-cli";
     private static final String STAGING_CONSOLE = "https://app-staging.internetdata.io";
 
+    // The client is pointed at the API's host, and its OAuth calls go to the apex that issues.
     @Test
     void metadataNamesStagingAsTheIssuer() {
         OauthMetadata metadata = keyless().oauth().metadata();
 
-        assertEquals(Staging.BASE_URL, metadata.getIssuer());
+        assertEquals(Staging.ISSUER, metadata.getIssuer());
         assertNotNull(metadata.getDeviceAuthorizationEndpoint(), "device_authorization_endpoint is absent");
         assertNotNull(metadata.getCodeChallengeMethodsSupported(), "code_challenge_methods_supported is absent");
         assertTrue(metadata.getCodeChallengeMethodsSupported().contains("S256"),
@@ -64,8 +65,8 @@ class OauthTest {
         }
         assertFalse(device.getDeviceCode().isEmpty(), "device_code is empty");
         assertFalse(device.getUserCode().isEmpty(), "user_code is empty");
-        // The console's, not the apex's: the API is served at the apex here, so a page taken from the
-        // API host would be the landing page's, which a /device suffix alone still passes.
+        // The console's, not the apex's: the apex serves the landing page, so a page taken from it
+        // would be the landing page's, which a /device suffix alone still passes.
         assertEquals(STAGING_CONSOLE + "/device", device.getVerificationUri());
         assertTrue(device.getExpiresIn() > 0 && device.getInterval() > 0,
                 "expires_in " + device.getExpiresIn() + " and interval " + device.getInterval());
