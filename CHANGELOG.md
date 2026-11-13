@@ -2,6 +2,17 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.8.0 - 2026-11-13
+
+### Features
+
+- Look up addresses, AS numbers and domains ([`ff3ba3f`](https://github.com/internetdata/sdk-java/commit/ff3ba3f1af12e770fe0838eedc2b86f02437d095))
+- Default to https://api.internetdata.io, and sign in at its apex ([`6c350dc`](https://github.com/internetdata/sdk-java/commit/6c350dcffece44732ffc861be0d0ef24a7875c61))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.13: the lookups ([`762f730`](https://github.com/internetdata/sdk-java/commit/762f730d2b22826d4ae05c30a42dde896578c339))
+
 ## 2.7.1 - 2026-11-09
 
 ### Fixes
