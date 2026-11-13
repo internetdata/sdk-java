@@ -144,7 +144,7 @@ public final class InternetData implements AutoCloseable {
      * cached for this instance.
      *
      * @throws InternetDataException {@link ErrorKind#BAD_REQUEST}, before anything is sent, for a
-     *     string that is not an IP address: look an AS up with {@link #lookupAsn(long)} and a domain
+     *     string that is not an IP address: look up an AS with {@link #lookupAsn(long)}, and a domain
      *     with {@link #lookupDomain(String)}.
      */
     public Result lookup(String ip, LookupOptions options) {
@@ -156,7 +156,7 @@ public final class InternetData implements AutoCloseable {
             // The API answers an AS or a domain at this path too, as an answer this call cannot
             // read, so one sent here would come back as three retried SERVER_ERRORs.
             throw new InternetDataException(ErrorKind.BAD_REQUEST, "'" + ip
-                    + "' is not an IP address: look an AS up with lookupAsn and a domain with lookupDomain");
+                    + "' is not an IP address: look up an AS with lookupAsn, and a domain with lookupDomain");
         }
         if (Bogon.isBogon(carried)) {
             return Result.bogon(carried);

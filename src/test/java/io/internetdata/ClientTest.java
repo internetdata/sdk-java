@@ -478,6 +478,9 @@ class ClientTest {
                 assertTrue(e.getMessage().contains("lookupAsn") && e.getMessage().contains("lookupDomain"),
                         target + ": " + e.getMessage());
             }
+            assertEquals("'example.com' is not an IP address: look up an AS with lookupAsn, and a domain with"
+                    + " lookupDomain", assertThrows(InternetDataException.class,
+                            () -> client.lookup("example.com")).getMessage(), "every SDK's words");
             java.util.concurrent.CompletionException async = assertThrows(java.util.concurrent.CompletionException.class,
                     () -> client.lookupAsync("example.com").join());
             assertEquals(ErrorKind.BAD_REQUEST, ((InternetDataException) async.getCause()).kind());
