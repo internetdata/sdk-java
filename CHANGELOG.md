@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.9.0 - 2026-11-14
+
+### Features
+
+- Add the framework middleware core ([`dc9002a`](https://github.com/internetdata/sdk-java/commit/dc9002a53405e861dd821052d35ebca9de7fbe47))
+
 ## 2.8.0 - 2026-11-13
 
 ### Features
