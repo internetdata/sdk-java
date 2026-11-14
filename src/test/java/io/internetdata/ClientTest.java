@@ -11,6 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.internetdata.middleware.Core;
+import io.internetdata.middleware.Lookup;
+import io.internetdata.middleware.Options;
 import io.internetdata.model.Entitlement;
 import io.internetdata.model.EntitlementPlan;
 
@@ -303,6 +306,7 @@ class ClientTest {
         for (int retries : new int[] {-1, Integer.MIN_VALUE}) {
             assertThrows(IllegalArgumentException.class, () -> new LookupOptions().retries(retries));
             assertThrows(IllegalArgumentException.class, () -> new BatchOptions().retries(retries));
+            assertThrows(IllegalArgumentException.class, () -> new Options<String>().retries(retries));
         }
         assertEquals(0, new LookupOptions().retries(0).retriesOrNull());
     }
@@ -370,6 +374,22 @@ class ClientTest {
 
             assertEquals(3, http.calls.size());
             assertTrue(took >= 450, "took " + took + "ms, less than three attempts of 150ms each");
+        }
+    }
+
+    // An injected client keeps its own, looser bound; the request path's still applies per lookup.
+    @Test
+    void theMiddlewareTimeoutHoldsForAnInjectedClient() {
+        try (InternetData client = InternetData.builder().httpClient(StubHttpClient.hanging())
+                .cacheEnabled(false).requestTimeout(Duration.ofSeconds(10)).build()) {
+            Core<String> core = new Core<>(new Options<String>().client(client)
+                    .timeout(Duration.ofMillis(200)), request -> request);
+
+            Lookup answer = core.evaluate("9.9.9.9");
+            InternetDataException e = answer.error().orElseThrow();
+            assertEquals(ErrorKind.NETWORK, e.kind());
+            assertTrue(e.getMessage().contains("after 200ms"), e.getMessage());
+            assertFalse(answer.isBlocked(), "a failed lookup fails open");
         }
     }
 

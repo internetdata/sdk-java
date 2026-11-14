@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.internetdata.middleware.Core;
+import io.internetdata.middleware.Lookup;
+import io.internetdata.middleware.Options;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +20,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,6 +36,7 @@ class TransportTest {
 
     private final CountDownLatch release = new CountDownLatch(1);
     private final ExecutorService handlers = Executors.newCachedThreadPool();
+    private final List<String> authorizations = new CopyOnWriteArrayList<>();
     private HttpServer server;
 
     @BeforeEach
@@ -46,6 +52,18 @@ class TransportTest {
         release.countDown();
         server.stop(0);
         handlers.shutdownNow();
+    }
+
+    // Every adapter's README builds its core from a key alone; the stubs elsewhere never see a header.
+    @Test
+    void theMiddlewareSendsTheKeyItIsGiven() {
+        String served = "http://127.0.0.1:" + server.getAddress().getPort() + "/served";
+        Core<String> core = new Core<>(new Options<String>().apiKey("k").baseUrl(served), request -> request);
+
+        Lookup answer = core.evaluate("1.1.1.1");
+
+        assertEquals("AT", answer.result().orElseThrow().location().getCountry());
+        assertEquals(List.of("Bearer k"), authorizations);
     }
 
     @Test
@@ -162,6 +180,7 @@ class TransportTest {
                     write(exchange, out, 404, "{\"rc\": \"UNKNOWN_DATASET\"}");
                     break;
                 case "/served/1.1.1.1":
+                    authorizations.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
                     write(exchange, out, 200, StubHttpClient.answer("1.1.1.1"));
                     break;
                 case "/served/2.2.2.2":
