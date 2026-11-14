@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 2.9.1 - 2026-11-14
+
+### Fixes
+
+- Re-pin the spec to 2026.11.13 as republished: the ip.lookup scope 403 ([`3fefd49`](https://github.com/internetdata/sdk-java/commit/3fefd493628a5cb405bab2bc8a899a8881e32457))
+
 ## 2.9.0 - 2026-11-14
 
 ### Features

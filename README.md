@@ -13,12 +13,12 @@ It looks up what every InternetData database says about an IP address, an AS or 
 <dependency>
     <groupId>io.internetdata</groupId>
     <artifactId>internetdata</artifactId>
-    <version>2.9.0</version>
+    <version>2.9.1</version>
 </dependency>
 ```
 
 ```groovy
-implementation 'io.internetdata:internetdata:2.9.0'
+implementation 'io.internetdata:internetdata:2.9.1'
 ```
 
 Requires Java 17 or newer. HTTP is the JDK's own `java.net.http.HttpClient`, so there is no third-party HTTP stack to reconcile with yours.
