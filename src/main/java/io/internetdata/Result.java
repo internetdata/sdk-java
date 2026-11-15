@@ -139,7 +139,7 @@ public final class Result {
                         .abuseEmail("")
                         .asn(0))
                 .rwhois(new Rwhois().id("").name("").country("").source("").domain("").abuseEmail(""))
-                .hostedDomains(new HostedDomains().total(0));
+                .hostedDomains(new HostedDomains().total(0).domains(new ArrayList<>()));
         return new Result(r);
     }
 
