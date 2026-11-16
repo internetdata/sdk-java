@@ -569,7 +569,7 @@ class ClientTest {
                 "expires": null,
                 "allowed_cidrs": []
               },
-              "plan": {"key": "max", "tier": "max"},
+              "plan": {"key": "max", "name": "Max", "tier": "max"},
               "usage": {
                 "requests": 580,
                 "quota": 5000000,

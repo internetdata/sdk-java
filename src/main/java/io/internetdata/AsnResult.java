@@ -1,5 +1,6 @@
 package io.internetdata;
 
+import io.internetdata.model.AsnHostedDomains;
 import io.internetdata.model.AsnLookupResponse;
 import io.internetdata.model.AsnPrefix;
 
@@ -93,6 +94,51 @@ public final class AsnResult {
     /** What it announces, IPv4 then IPv6, each with its RPKI status. Paid plans. */
     public Optional<List<AsnPrefix>> prefixes() {
         return Optional.ofNullable(raw.getPrefixes());
+    }
+
+    /** Its rank in ASN Extended by customer cone, 1 the largest; 0 for an AS seen in no AS path. Paid plans. */
+    public Optional<Integer> rank() {
+        return Optional.ofNullable(raw.getRank());
+    }
+
+    /** Whether it is one of the transit-free networks at the top of the hierarchy. Paid plans. */
+    public Optional<Boolean> tier1() {
+        return Optional.ofNullable(raw.getTier1());
+    }
+
+    /** How many AS numbers it gets transit from. Paid plans. */
+    public Optional<Integer> numUpstreams() {
+        return Optional.ofNullable(raw.getNumUpstreams());
+    }
+
+    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    public Optional<List<Integer>> upstreams() {
+        return Optional.ofNullable(raw.getUpstreams());
+    }
+
+    /** How many AS numbers it exchanges its own and its customers' routes with. Paid plans. */
+    public Optional<Integer> numPeers() {
+        return Optional.ofNullable(raw.getNumPeers());
+    }
+
+    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    public Optional<List<Integer>> peers() {
+        return Optional.ofNullable(raw.getPeers());
+    }
+
+    /** How many AS numbers it provides transit to. Paid plans. */
+    public Optional<Integer> numDownstreams() {
+        return Optional.ofNullable(raw.getNumDownstreams());
+    }
+
+    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    public Optional<List<Integer>> downstreams() {
+        return Optional.ofNullable(raw.getDownstreams());
+    }
+
+    /** How many registered domains it hosts, and the 10 most popular. Paid plans. */
+    public Optional<AsnHostedDomains> hostedDomains() {
+        return Optional.ofNullable(raw.getHostedDomains());
     }
 
     /**

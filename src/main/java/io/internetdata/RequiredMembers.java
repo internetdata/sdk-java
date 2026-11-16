@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.type.LogicalType;
 
 import io.internetdata.model.AbuseContact;
 import io.internetdata.model.Asn;
+import io.internetdata.model.AsnHostedDomains;
 import io.internetdata.model.AsnLookupResponse;
 import io.internetdata.model.AsnPrefix;
 import io.internetdata.model.BatchLookupError;
@@ -108,6 +109,7 @@ final class RequiredMembers extends BeanDeserializerModifier {
                     "abuse_email", "asn")),
             Map.entry(Rwhois.class, List.of("id", "name", "country", "source", "domain", "abuse_email")),
             Map.entry(HostedDomains.class, List.of("total")),
+            Map.entry(AsnHostedDomains.class, List.of("total")),
             Map.entry(AsnLookupResponse.class, List.of("asn", "name", "country", "registry", "allocated", "domain")),
             Map.entry(AsnPrefix.class, List.of("prefix", "peer_count", "rpki_status", "first_seen", "country", "size",
                     "other_origins")),
@@ -122,7 +124,7 @@ final class RequiredMembers extends BeanDeserializerModifier {
             Map.entry(DomainIpRange.class, List.of("range", "name", "country")),
             Map.entry(Entitlement.class, List.of("org_id", "apikey", "plan", "usage")),
             Map.entry(EntitlementApikey.class, List.of("id", "allowed_cidrs")),
-            Map.entry(EntitlementPlan.class, List.of("key", "tier")),
+            Map.entry(EntitlementPlan.class, List.of("key", "name", "tier")),
             Map.entry(EntitlementUsage.class, List.of("requests", "quota", "window_start", "window_end")),
             Map.entry(DatabaseList.class, List.of("databases")),
             Map.entry(DownloadList.class, List.of("downloads")),

@@ -204,7 +204,7 @@ class TransportTest {
                 case "/served/api/v1/entitlement":
                     write(exchange, out, 200, "{\"org_id\": \"6f1c2a52-6c83-4c8a-9a3e-2f3b8c1d0e9f\", \"apikey\":"
                             + " {\"id\": \"0b6e2d8a-1c4f-4a5e-8d7b-3e2f1a0c9b8d\", \"expires\": null,"
-                            + " \"allowed_cidrs\": []}, \"plan\": {\"key\": \"free\", \"tier\": \"free\"},"
+                            + " \"allowed_cidrs\": []}, \"plan\": {\"key\": \"free\", \"name\": \"Unlimited\", \"tier\": \"free\"},"
                             + " \"usage\": {\"requests\": 1, \"quota\": 100, \"hard_limit\": null,"
                             + " \"window_start\": \"2026-11-13T00:00:00Z\", \"window_end\": \"2026-11-14T00:00:00Z\"}}");
                     break;

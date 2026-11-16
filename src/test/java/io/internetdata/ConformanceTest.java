@@ -460,7 +460,7 @@ class ConformanceTest {
 
     private static final String ENTITLEMENT = "{\"org_id\": \"6f1c2a52-6c83-4c8a-9a3e-2f3b8c1d0e9f\","
             + " \"apikey\": {\"id\": \"0b6e2d8a-1c4f-4a5e-8d7b-3e2f1a0c9b8d\", \"expires\": null,"
-            + " \"allowed_cidrs\": []}, \"plan\": {\"key\": \"scale\", \"tier\": \"scale\"},"
+            + " \"allowed_cidrs\": []}, \"plan\": {\"key\": \"scale\", \"name\": \"Scale\", \"tier\": \"scale\"},"
             + " \"usage\": {\"requests\": 12, \"quota\": 100000, \"hard_limit\": null,"
             + " \"window_start\": \"2026-10-01T00:00:00Z\", \"window_end\": \"2026-11-01T00:00:00Z\"}}";
 
@@ -512,11 +512,12 @@ class ConformanceTest {
                         "tls_version", "first_seen", "last_seen"),
                 List.of("api/v1/entitlement", "", "org_id", "apikey", "plan", "usage"),
                 List.of("api/v1/entitlement", "/apikey", "id", "allowed_cidrs"),
-                List.of("api/v1/entitlement", "/plan", "key", "tier"),
+                List.of("api/v1/entitlement", "/plan", "key", "name", "tier"),
                 List.of("api/v1/entitlement", "/usage", "requests", "quota", "window_start", "window_end"),
                 List.of("asn/9009", "", "asn", "name", "country", "registry", "allocated", "domain"),
                 List.of("asn/9009", "/prefixes/0", "prefix", "peer_count", "rpki_status", "first_seen", "country",
                         "size", "other_origins"),
+                List.of("asn/9009", "/hosted_domains", "total"),
                 List.of("domain/example.com", "", "domain", "is_registered", "has_a", "has_aaaa", "has_mx", "has_ns",
                         "has_cname"),
                 List.of("domain/example.com", "/dns", "a", "aaaa", "mx", "ns", "cname"),
@@ -1308,6 +1309,15 @@ class ConformanceTest {
             case "rpki_not_found" -> r.rpkiNotFound();
             case "whois" -> r.whois();
             case "prefixes" -> r.prefixes();
+            case "rank" -> r.rank();
+            case "tier1" -> r.tier1();
+            case "num_upstreams" -> r.numUpstreams();
+            case "upstreams" -> r.upstreams();
+            case "num_peers" -> r.numPeers();
+            case "peers" -> r.peers();
+            case "num_downstreams" -> r.numDownstreams();
+            case "downstreams" -> r.downstreams();
+            case "hosted_domains" -> r.hostedDomains();
             case "trial_expired" -> r.trialExpired();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);
         };
