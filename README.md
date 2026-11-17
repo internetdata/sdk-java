@@ -185,7 +185,7 @@ try {
 
 `kind()` is one of `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `QUOTA_EXCEEDED`, `SERVER_ERROR` or `NETWORK`. `getMessage()` is the API's own word where it sent one, so a database refusal reads `NOT_LICENSED` or `LICENSE_EXPIRED` rather than "403".
 
-Note that `RATE_LIMITED` and `QUOTA_EXCEEDED` both arrive as HTTP 429 and are not the same thing. A rate limit carries `Retry-After`, so retrying later works, and the library retries it for you, as it does 5xx and transport failures; a spent quota needs your allowance raised or the window to roll over, and the library never retries it, nor any other client error.
+Note that `RATE_LIMITED` and `QUOTA_EXCEEDED` both arrive as HTTP 429 and are not the same thing. A rate limit carries `Retry-After`, so retrying later works, and the library retries it for you, as it does 5xx and transport failures; one without it is `QUOTA_EXCEEDED`, and the library never retries it, nor any other client error. The API itself always sends `Retry-After` with a 429, so that one comes from something in between, such as a proxy; a paid key past its overage cap gets `capReached()` instead.
 
 ### Timeouts
 
@@ -340,12 +340,13 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its daily trial is spent. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null.
+Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its daily trial is spent. A paid key's carries `capReached()`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null.
 
 ```java
 result.isVpn().orElse(false);         // when you only want the flag
 result.isVpn().isEmpty();             // on Unlimited: not in your plan
 result.trialExpired().orElse(false);  // a free-plan key's daily trial is spent
+result.capReached().orElse(false);    // a paid key is past its overage cap
 ```
 
 ## Other Libraries

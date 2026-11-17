@@ -178,6 +178,7 @@ class ConformanceTest {
             }
             assertEquals(Optional.of(bogon.get("hostname").asText()), member(r, "hostname"));
             assertTrue(r.trialExpired().isEmpty(), "a bogon carries no trial");
+            assertTrue(r.capReached().isEmpty(), "a bogon carries no overage cap");
             assertEquals(0, http.calls.size(), "a bogon must not reach the network");
         }
     }
@@ -1288,6 +1289,7 @@ class ConformanceTest {
             case "rwhois" -> r.rwhois();
             case "hosted_domains" -> r.hostedDomains();
             case "trial_expired" -> r.trialExpired();
+            case "cap_reached" -> r.capReached();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);
         };
     }
@@ -1319,6 +1321,7 @@ class ConformanceTest {
             case "downstreams" -> r.downstreams();
             case "hosted_domains" -> r.hostedDomains();
             case "trial_expired" -> r.trialExpired();
+            case "cap_reached" -> r.capReached();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);
         };
     }
@@ -1337,6 +1340,7 @@ class ConformanceTest {
             case "ip_ranges" -> r.ipRanges();
             case "disposable" -> r.disposable();
             case "trial_expired" -> r.trialExpired();
+            case "cap_reached" -> r.capReached();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);
         };
     }
