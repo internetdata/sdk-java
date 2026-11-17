@@ -2,7 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
-## 2.9.1 - 2026-11-14
+## 2.10.0 - 2026-11-17
+
+### Features
+
+- Read cap_reached on a paid answer past its overage cap ([`2e28e38`](https://github.com/internetdata/sdk-java/commit/2e28e38c35662095ccb54d49a567c68f32f7a254))
+- Read an AS's rank, neighbors and hosted domains, and the plan's name ([`98788d0`](https://github.com/internetdata/sdk-java/commit/98788d08b0fcea551b4d4fa8f761f5aaa8963935))
+- Read hosted_domains' 10 most popular domains ([`b29d860`](https://github.com/internetdata/sdk-java/commit/b29d86028499a99c2b36230578480e2911a0b3da))
 
 ### Fixes
 
