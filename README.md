@@ -349,6 +349,19 @@ result.trialExpired().orElse(false);  // a free-plan key's daily trial is spent
 result.capReached().orElse(false);    // a paid key is past its overage cap
 ```
 
+### A value the API adds
+
+From 3.0.0, a plan's tier, a database's standing and license type, a format and a download's outcome are each a class with a constant per value this release knows. A value the API adds later reads as itself rather than failing the call, so compare with `equals` and keep a fallback:
+
+```java
+if (Standing.LICENSED.equals(family.getStanding())) { /* download it */ }
+family.getStanding().getValue();  // "licensed", as the API spells it
+family.getStanding().isKnown();   // false for a value added after this release
+Standing.known();                 // every value this release knows
+```
+
+A known value is its constant, so `==` against one still holds, but a `switch` on these no longer compiles.
+
 ## Other Libraries
 
 There are official InternetData client libraries available for many languages including PHP, Python, Go, Java, and Ruby. See our GitHub at https://github.com/internetdata for more.

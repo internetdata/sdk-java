@@ -623,17 +623,25 @@ class ConformanceTest {
     }
 
     /**
-     * A null inside a list or map, a value outside an enum and a sample row that is no object, each
-     * in an otherwise whole answer. Through 2.6.1 each came back as an answer, a {@code license_type}
-     * outside its enum as null, which reads as no license at all.
+     * A null inside a list or map, a vocabulary that is no string and a sample row that is no object,
+     * each in an otherwise whole answer. Through 2.6.1 each came back as an answer, a
+     * {@code license_type} outside its enum as null, which reads as no license at all; from 3.0.0 a
+     * vocabulary is any string, as served.
      */
     @Test
-    void aNullEntryAValueOutsideItsEnumOrARowThatIsNoObjectIsARetriedServerError() throws IOException {
+    void aNullEntryAVocabularyThatIsNoStringOrARowThatIsNoObjectIsARetriedServerError() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         List<List<Object>> cases = List.of(
                 List.of("api/v2/database/list", "/databases/0/versions/0", "sample_formats", Arrays.asList((Object) null)),
-                List.of("api/v2/database/list", "/databases/0", "license_type", "perpetual"),
                 List.of("api/v2/database/list", "/databases/0", "license_type", 1),
+                List.of("api/v2/database/list", "/databases/0", "license_type", true),
+                List.of("api/v2/database/list", "/databases/0", "standing", 0),
+                List.of("api/v2/database/list", "/databases/0", "standing", Map.of("value", "licensed")),
+                List.of("api/v2/database/list", "/databases/0/versions/0", "formats", List.of(0)),
+                List.of("api/v2/database/list", "/databases/0/versions/0", "formats", List.of(List.of("mmdb"))),
+                List.of("api/v2/database/downloads", "/downloads/0", "outcome", 1),
+                List.of("api/v2/database/downloads", "/downloads/0", "outcome", List.of("ok")),
+                List.of("api/v2/database/downloads", "/downloads/0", "format", false),
                 List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", Arrays.asList((Object) null))),
                 List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", List.of(List.of("10.0.0.0/8")))),
                 List.of("api/v2/database/metadata", "", "sample", Map.of("csvgz", List.of("10.0.0.0/8"))),
@@ -646,7 +654,8 @@ class ConformanceTest {
                 List.of("asn/9009", "", "whois", Collections.singletonMap("country", null)),
                 List.of("domain/example.com", "/dns", "a", Arrays.asList((Object) null)),
                 List.of("api/v1/entitlement", "/apikey", "allowed_cidrs", Arrays.asList((Object) null)),
-                List.of("api/v1/entitlement", "/plan", "tier", "platinum"));
+                List.of("api/v1/entitlement", "/plan", "tier", 3),
+                List.of("api/v1/entitlement", "/plan", "tier", false));
         for (List<Object> each : cases) {
             String path = (String) each.get(0);
             JsonNode body = mapper.readTree(whole(path));
@@ -849,7 +858,7 @@ class ConformanceTest {
             for (java.lang.reflect.Type argument : parameterized.getActualTypeArguments()) {
                 models(argument, into);
             }
-        } else if (type instanceof Class<?> model && !model.isEnum()
+        } else if (type instanceof Class<?> model && !model.isEnum() && !RequiredMembers.isVocabulary(model)
                 && model.getPackageName().equals("io.internetdata.model")) {
             into.add(model);
         }
@@ -872,13 +881,13 @@ class ConformanceTest {
     @Test
     void theStandingsAreExactlyTheOnesTheCorpusNames() {
         assertEquals(strings(data.get("standings")),
-                Stream.of(io.internetdata.model.Standing.values()).map(io.internetdata.model.Standing::getValue).toList());
+                io.internetdata.model.Standing.known().stream().map(io.internetdata.model.Standing::getValue).toList());
     }
 
     @Test
     void theLicenseTypesAreExactlyTheOnesTheCorpusNames() {
         assertEquals(strings(data.get("license_type")),
-                Stream.of(Database.LicenseTypeEnum.values())
+                Database.LicenseTypeEnum.known().stream()
                         .map(Database.LicenseTypeEnum::getValue).toList());
     }
 
@@ -891,8 +900,112 @@ class ConformanceTest {
         List<String> expected = strings(data.get("formats"));
         assertEquals(expected,
                 Stream.of(DatabaseFormat.values()).map(DatabaseFormat::wireValue).toList());
-        assertEquals(expected, Stream.of(io.internetdata.model.DatabaseFormat.values())
+        assertEquals(expected, io.internetdata.model.DatabaseFormat.known().stream()
                 .map(io.internetdata.model.DatabaseFormat::getValue).toList());
+    }
+
+    // Each vocabulary case serves a well-formed answer, and each `expect` path, wire names with a
+    // number indexing a list, reads the same value off the typed result: the plan's name beside its
+    // key, and a tier, standing, license type, format and outcome no published list holds (2.10.0
+    // failed the call on each of the five, measured 2026-11-19).
+    @Test
+    void everyVocabularyCaseReadsAsServed() throws IOException {
+        Map<String, String> paths = Map.of(
+                "myEntitlement", "api/v1/entitlement",
+                "listDatabases", "api/v2/database/list",
+                "listDownloads", "api/v2/database/downloads");
+        int read = 0;
+        for (JsonNode c : data.get("vocabulary").get("cases")) {
+            String name = c.get("name").asText();
+            String call = c.get("call").asText();
+            StubHttpClient http = StubHttpClient.of(Map.of(
+                    paths.get(call), StubHttpClient.Route.ok(c.get("answer").toString())));
+            Object typed;
+            try (InternetData client = clientOn(http).apiKey("k").build()) {
+                typed = switch (call) {
+                    case "myEntitlement" -> client.myEntitlement();
+                    case "listDatabases" -> Map.of("databases", client.database().list());
+                    case "listDownloads" -> Map.of("downloads", client.database().downloads());
+                    default -> throw new AssertionError(name + ": no call " + call);
+                };
+            }
+            JsonNode wire = MAPPER.valueToTree(typed);
+            for (Map.Entry<String, JsonNode> expect : c.get("expect").properties()) {
+                JsonNode at = wire;
+                for (String step : expect.getKey().split("\\.")) {
+                    at = step.chars().allMatch(Character::isDigit) ? at.get(Integer.parseInt(step)) : at.get(step);
+                }
+                assertEquals(expect.getValue().toString(), at.toString(), name + ": " + expect.getKey());
+            }
+            read++;
+        }
+        assertEquals(7, read);
+    }
+
+    /**
+     * 2.10.0 read a vocabulary as a closed enum, so a value the API added failed the call. Each
+     * string comes back as served, equal to no constant unless it is one exactly.
+     */
+    @Test
+    void aVocabularyValueReadsAsServed() throws IOException {
+        for (String value : List.of("suspended", "LICENSED", "Licensed", "0", "")) {
+            JsonNode list = MAPPER.readTree(WHOLE.get("api/v2/database/list"));
+            ObjectNode family = (ObjectNode) list.at("/databases/0");
+            family.put("standing", value);
+            family.put("license_type", value);
+            ((ObjectNode) list.at("/databases/0/versions/0")).set("formats", MAPPER.valueToTree(List.of(value, "csvgz")));
+            JsonNode downloads = MAPPER.readTree(WHOLE.get("api/v2/database/downloads"));
+            ((ObjectNode) downloads.at("/downloads/0")).put("outcome", value);
+            ((ObjectNode) downloads.at("/downloads/0")).put("format", value);
+            JsonNode entitlement = MAPPER.readTree(ENTITLEMENT);
+            ((ObjectNode) entitlement.at("/plan")).put("tier", value);
+            StubHttpClient http = StubHttpClient.of(Map.of(
+                    "api/v2/database/list", StubHttpClient.Route.ok(MAPPER.writeValueAsString(list)),
+                    "api/v2/database/downloads", StubHttpClient.Route.ok(MAPPER.writeValueAsString(downloads)),
+                    "api/v1/entitlement", StubHttpClient.Route.ok(MAPPER.writeValueAsString(entitlement))));
+            try (InternetData client = clientOn(http).build()) {
+                Database database = client.database().list().get(0);
+                io.internetdata.model.Download attempt = client.database().downloads().get(0);
+                io.internetdata.model.EntitlementPlan plan = client.myEntitlement().getPlan();
+
+                assertEquals(value, database.getStanding().getValue(), value);
+                assertFalse(database.getStanding().isKnown(), value);
+                assertEquals(io.internetdata.model.Standing.fromValue(value), database.getStanding(), value);
+                assertFalse(io.internetdata.model.Standing.LICENSED.equals(database.getStanding()), value);
+                assertEquals(value, database.getLicenseType().getValue(), value);
+                assertFalse(database.getLicenseType().isKnown(), value);
+                assertEquals(List.of(io.internetdata.model.DatabaseFormat.fromValue(value),
+                        io.internetdata.model.DatabaseFormat.CSVGZ), database.getVersions().get(0).getFormats(), value);
+                assertEquals(value, attempt.getOutcome().getValue(), value);
+                assertFalse(attempt.getOutcome().isKnown(), value);
+                assertEquals(value, attempt.getFormat(), value);
+                assertEquals(value, plan.getTier().getValue(), value);
+                assertFalse(plan.getTier().isKnown(), value);
+            }
+        }
+    }
+
+    @Test
+    void anUnknownVocabularyValueIsNotAKnownOne() {
+        JsonNode c = null;
+        for (JsonNode each : data.get("vocabulary").get("cases")) {
+            if (each.get("name").asText().equals("database-standing-unknown")) {
+                c = each;
+            }
+        }
+        assertTrue(c != null, "the corpus has no database-standing-unknown case");
+        StubHttpClient http = StubHttpClient.of(Map.of(
+                "api/v2/database/list", StubHttpClient.Route.ok(c.get("answer").toString())));
+        try (InternetData client = clientOn(http).build()) {
+            io.internetdata.model.Standing standing = client.database().list().get(0).getStanding();
+
+            assertEquals("suspended", standing.getValue());
+            assertFalse(standing.isKnown());
+            assertEquals(io.internetdata.model.Standing.fromValue("suspended"), standing);
+            assertFalse(io.internetdata.model.Standing.LICENSED.equals(standing));
+            assertTrue(io.internetdata.model.Standing.fromValue("licensed") == io.internetdata.model.Standing.LICENSED);
+            assertTrue(io.internetdata.model.Standing.LICENSED.isKnown());
+        }
     }
 
     /**

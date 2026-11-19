@@ -106,6 +106,10 @@ for pkg in internal api model ; do
     cp -R ".gen/src/main/java/io/internetdata/${pkg}" "src/main/java/io/internetdata/${pkg}"
 done
 
+# A generated enum fails the whole call on a value the API adds; each becomes a class that holds
+# any value as served (scripts/open_enums.py says how).
+python3 scripts/open_enums.py src/main/java/io/internetdata/model
+
 rm -rf .gen
 echo "regenerated src/main/java/io/internetdata/{internal,api,model} from spec/openapi.yaml"
 grep -m1 '^  version:' spec/openapi.yaml
