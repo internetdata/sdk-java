@@ -104,6 +104,13 @@
     </dependencies>
 
     <build>
+        <!-- Writes the version into internetdata.properties, which the User-Agent reads. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

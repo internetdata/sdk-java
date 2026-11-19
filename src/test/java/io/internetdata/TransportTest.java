@@ -37,6 +37,7 @@ class TransportTest {
     private final CountDownLatch release = new CountDownLatch(1);
     private final ExecutorService handlers = Executors.newCachedThreadPool();
     private final List<String> authorizations = new CopyOnWriteArrayList<>();
+    private final java.util.Map<String, String> agents = new java.util.concurrent.ConcurrentHashMap<>();
     private HttpServer server;
 
     @BeforeEach
@@ -104,6 +105,28 @@ class TransportTest {
         assertEquals("free", client.myEntitlement().getPlan().getKey());
     }
 
+    // Each request names the library and its version, the API's, OAuth's and object storage's
+    // transfer alike. 2.10.0 sent the JDK's own Java-http-client/<runtime> on each.
+    @Test
+    void everyRequestNamesTheLibraryAndItsVersion() throws IOException {
+        java.util.regex.Matcher pom = java.util.regex.Pattern
+                .compile("<artifactId>internetdata</artifactId>\\s*<version>([^<]+)</version>")
+                .matcher(java.nio.file.Files.readString(java.nio.file.Path.of("pom.xml")));
+        assertTrue(pom.find(), "pom.xml names no version");
+        String expected = "internetdata-java/" + pom.group(1);
+
+        InternetData client = clientOn("/served", Duration.ofSeconds(10));
+        client.lookup("1.1.1.1");
+        client.myEntitlement();
+        assertThrows(RuntimeException.class, () -> client.oauth().metadata());
+        clientOn("/slow", Duration.ofSeconds(10)).database().downloadBytes("bogon_asn_v1", DatabaseFormat.CSVGZ);
+
+        for (String path : java.util.List.of("/served/1.1.1.1", "/served/api/v1/entitlement",
+                "/served/.well-known/oauth-authorization-server", "/slow/api/v2/database/download", "/blob")) {
+            assertEquals(expected, agents.get(path), path);
+        }
+    }
+
     // The JDK stops a request's clock once the headers arrive, so this one would otherwise wait for
     // the server to give up.
     @Test
@@ -169,6 +192,7 @@ class TransportTest {
     // to a blob trickled the same way, which does end.
     private void answer(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
+        agents.put(path, String.valueOf(exchange.getRequestHeaders().getFirst("User-Agent")));
         exchange.getResponseHeaders().add("content-type", "application/json");
         OutputStream out = exchange.getResponseBody();
         try {

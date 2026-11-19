@@ -32,8 +32,15 @@ import javax.net.ssl.SSLParameters;
  * server likes (measured on 17, 21 and 25), and a substituted {@link HttpClient} need not honor
  * the timeout at all. A request with no timeout, which is what a database transfer sends, passes
  * straight through and stays streamed.
+ *
+ * <p>Every request the client makes passes through here, the API's, OAuth's and object storage's
+ * transfer alike, so this is also where each is given the library's {@code User-Agent}, before a
+ * substituted {@link HttpClient} sees it: a program wrapping the library puts its own name first.
  */
 final class DeadlineHttpClient extends HttpClient {
+    /** {@code internetdata-java/<version>}, the version the build wrote, or {@code devel} without one. */
+    static final String USER_AGENT = "internetdata-java/" + libraryVersion();
+
     private final HttpClient delegate;
 
     DeadlineHttpClient(HttpClient delegate) {
@@ -41,8 +48,9 @@ final class DeadlineHttpClient extends HttpClient {
     }
 
     @Override
-    public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> handler)
+    public <T> HttpResponse<T> send(HttpRequest unnamed, HttpResponse.BodyHandler<T> handler)
             throws IOException, InterruptedException {
+        HttpRequest request = named(unnamed);
         Duration limit = request.timeout().orElse(null);
         if (limit == null) {
             return delegate.send(request, handler);
@@ -68,14 +76,38 @@ final class DeadlineHttpClient extends HttpClient {
     @Override
     public <T> CompletableFuture<HttpResponse<T>> sendAsync(
             HttpRequest request, HttpResponse.BodyHandler<T> handler) {
-        return delegate.sendAsync(request, handler);
+        return delegate.sendAsync(named(request), handler);
     }
 
     @Override
     public <T> CompletableFuture<HttpResponse<T>> sendAsync(
             HttpRequest request, HttpResponse.BodyHandler<T> handler,
             HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
-        return delegate.sendAsync(request, handler, pushPromiseHandler);
+        return delegate.sendAsync(named(request), handler, pushPromiseHandler);
+    }
+
+    // A request that already names a client keeps that name.
+    private static HttpRequest named(HttpRequest request) {
+        if (request.headers().firstValue("User-Agent").isPresent()) {
+            return request;
+        }
+        return HttpRequest.newBuilder(request, (name, value) -> true).setHeader("User-Agent", USER_AGENT).build();
+    }
+
+    // The build writes the version into internetdata.properties; a tree that skipped that step
+    // still says something true.
+    private static String libraryVersion() {
+        try (java.io.InputStream in = DeadlineHttpClient.class.getResourceAsStream("internetdata.properties")) {
+            if (in == null) {
+                return "devel";
+            }
+            java.util.Properties properties = new java.util.Properties();
+            properties.load(in);
+            String version = properties.getProperty("version", "");
+            return version.isEmpty() || version.startsWith("${") ? "devel" : version;
+        } catch (IOException e) {
+            return "devel";
+        }
     }
 
     @Override
