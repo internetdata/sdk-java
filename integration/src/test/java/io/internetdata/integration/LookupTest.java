@@ -35,7 +35,7 @@ import java.util.Set;
  * <p>Nothing here pins a field COUNT or which plan answers which member. A plan is asserted as a
  * RELATION, a keyed answer serving a superset of the keyless one, so a pricing change stays a
  * pricing change instead of arriving as a red SDK build. The CI key's organization is on the free
- * plan, whose first 100 lookups a UTC day answer every field and the rest Unlimited's, so the keyed
+ * plan, whose trial answers every field and the rest Unlimited's, so the keyed
  * tests ask as few as they can.
  */
 class LookupTest {
@@ -129,11 +129,11 @@ class LookupTest {
         Staging.assertShape(answer);
         Object expired = answer.raw().get("trial_expired");
         if (expired != null) {
-            // A free-plan key's first 100 lookups of the UTC day are answered in full, and the rest
-            // as Unlimited's: which half a run sees depends on the day.
+            // A free-plan key's trial is answered in full, and the rest as Unlimited's: which half
+            // a run sees depends on the trial.
             assertInstanceOf(Boolean.class, expired, "trial_expired is a flag");
             assertEquals(!(Boolean) expired, answer.raw().containsKey("is_vpn"),
-                    "is_vpn is served exactly while the day's trial lasts");
+                    "is_vpn is served exactly while the trial lasts");
         }
     }
 

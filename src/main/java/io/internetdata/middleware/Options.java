@@ -13,7 +13,7 @@ import java.util.function.Predicate;
  * How a middleware behaves.
  *
  * <p>Everything is optional, though a server almost certainly wants an {@code apiKey}: without one a
- * lookup is on Unlimited, the free plan, and every lookup shares the per-minute limit of the server's
+ * lookup is on Unlimited, the free plan, and every lookup shares the rate limit of the server's
  * one address.
  */
 public final class Options<R> {
