@@ -43,7 +43,7 @@ Build the client once and keep it. It owns a connection pool, a cache and a thre
 
 ### With an API key
 
-Every paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting` and `is_cdn`, the detail behind each flag, the city and coordinates, whois and more. The plans differ only in how many lookups they include, and a free account tries every field, 100 lookups a day. Create a key in the [console](https://app.internetdata.io), then pass it in:
+Every paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting` and `is_cdn`, the detail behind each flag, the city and coordinates, whois and more. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```java
 InternetData client = InternetData.create(System.getenv("INTERNETDATA_API_KEY"));
@@ -340,12 +340,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its daily trial is spent. A paid key's carries `capReached()`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null.
+Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its trial is spent. A paid key's carries `capReached()`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null.
 
 ```java
 result.isVpn().orElse(false);         // when you only want the flag
 result.isVpn().isEmpty();             // on Unlimited: not in your plan
-result.trialExpired().orElse(false);  // a free-plan key's daily trial is spent
+result.trialExpired().orElse(false);  // a free-plan key's trial is spent
 result.capReached().orElse(false);    // a paid key is past its overage cap
 ```
 
