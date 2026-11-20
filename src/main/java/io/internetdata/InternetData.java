@@ -2,6 +2,8 @@ package io.internetdata;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
+import com.github.benmanes.caffeine.cache.Ticker;
 
 import io.internetdata.api.EntitlementApi;
 import io.internetdata.api.LookupApi;
@@ -60,6 +62,9 @@ public final class InternetData implements AutoCloseable {
     // size.
     private static final int BATCH_MAX = 1000;
 
+    // The longest a cached answer with trial_expired or cap_reached true is kept.
+    static final Duration REDUCED_LIFE = Duration.ofSeconds(60);
+
     // The OAuth server's host is the API's apex: `api.` dropped and `api-<env>.` becoming `<env>.`.
     private static final Pattern API_HOST = Pattern.compile("(?i)(https?://)api(?:-([^./:@]+))?\\.(.+)");
 
@@ -99,7 +104,8 @@ public final class InternetData implements AutoCloseable {
         this.oauth = new OauthApi(http, api.getObjectMapper(), apexOf(b.baseUrl), b.retries,
                 b.requestTimeout, OauthApi.SYSTEM);
         this.cache = b.cacheEnabled
-                ? Caffeine.newBuilder().maximumSize(b.cacheSize).expireAfterWrite(b.cacheTtl).build()
+                ? Caffeine.newBuilder().maximumSize(b.cacheSize).ticker(b.cacheTicker)
+                        .expireAfter(new AnswerLife(nanosOf(b.cacheTtl))).build()
                 : null;
         this.gate = new Semaphore(b.concurrency);
         this.ownedExecutor = b.executor == null ? Executors.newCachedThreadPool(daemonThreads()) : null;
@@ -699,6 +705,48 @@ public final class InternetData implements AutoCloseable {
                 .build();
     }
 
+    // How long a cached answer lives: the client's TTL, but a minute at most for one whose
+    // trial_expired or cap_reached is true. That answer is the reduced one until the day's trial
+    // resets or the cap is raised, so a whole TTL would keep serving it after either; it stays
+    // cached for that minute, so a busy address does not go to the API on every repeat. An answer
+    // that replaces another takes its own life, and reading one never extends it.
+    private static final class AnswerLife implements Expiry<String, Result> {
+        private final long ttl;
+
+        AnswerLife(long ttl) {
+            this.ttl = ttl;
+        }
+
+        private long lifeOf(Result result) {
+            boolean reduced = result.trialExpired().orElse(false) || result.capReached().orElse(false);
+            return reduced ? Math.min(ttl, REDUCED_LIFE.toNanos()) : ttl;
+        }
+
+        @Override
+        public long expireAfterCreate(String ip, Result result, long now) {
+            return lifeOf(result);
+        }
+
+        @Override
+        public long expireAfterUpdate(String ip, Result result, long now, long remaining) {
+            return lifeOf(result);
+        }
+
+        @Override
+        public long expireAfterRead(String ip, Result result, long now, long remaining) {
+            return remaining;
+        }
+    }
+
+    // A duration in nanoseconds, the largest one for a duration too long to count in them.
+    private static long nanosOf(Duration d) {
+        try {
+            return d.toNanos();
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
     private static ThreadFactory daemonThreads() {
         AtomicLong seq = new AtomicLong();
         return runnable -> {
@@ -715,6 +763,7 @@ public final class InternetData implements AutoCloseable {
         private boolean cacheEnabled = true;
         private long cacheSize = 10_000;
         private Duration cacheTtl = Duration.ofHours(1);
+        private Ticker cacheTicker = Ticker.systemTicker();
         private int concurrency = 8;
         private int retries = 2;
         private Duration requestTimeout = Duration.ofSeconds(30);
@@ -765,9 +814,19 @@ public final class InternetData implements AutoCloseable {
             return this;
         }
 
-        /** How long an answer stays fresh. Default 1 hour. */
+        /**
+         * How long an answer stays fresh. Default 1 hour. An answer whose {@code trial_expired} or
+         * {@code cap_reached} is true is kept a minute at most, or this long when it is shorter:
+         * it is the reduced answer only until the trial resets or the cap is raised.
+         */
         public Builder cacheTtl(Duration cacheTtl) {
             this.cacheTtl = Objects.requireNonNull(cacheTtl, "cacheTtl");
+            return this;
+        }
+
+        // The cache's clock, for a test to move.
+        Builder cacheTicker(Ticker cacheTicker) {
+            this.cacheTicker = Objects.requireNonNull(cacheTicker, "cacheTicker");
             return this;
         }
 

@@ -144,6 +144,8 @@ InternetData client = InternetData.builder()
 InternetData clientNoCache = InternetData.builder().cacheEnabled(false).build();
 ```
 
+An answer with `trialExpired()` or `capReached()` true is cached for a minute at most, so a renewed trial or a raised cap reaches you within a minute.
+
 ### Private and reserved addresses
 
 Private, loopback, link-local, documentation and multicast addresses (and their IPv6 equivalents, including the 6to4 and Teredo ranges) are answered by the library itself, so they cost no request and no quota:
