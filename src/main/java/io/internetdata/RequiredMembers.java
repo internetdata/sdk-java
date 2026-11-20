@@ -26,6 +26,7 @@ import io.internetdata.model.AsnLookupResponse;
 import io.internetdata.model.AsnPrefix;
 import io.internetdata.model.BatchLookupError;
 import io.internetdata.model.BatchLookupResponse;
+import io.internetdata.model.CohostedDomains;
 import io.internetdata.model.Company;
 import io.internetdata.model.Database;
 import io.internetdata.model.DatabaseChecksums;
@@ -38,10 +39,15 @@ import io.internetdata.model.DnsAddressRecord;
 import io.internetdata.model.DnsCnameRecord;
 import io.internetdata.model.DnsMxRecord;
 import io.internetdata.model.DnsNsRecord;
+import io.internetdata.model.DomainBacklinks;
 import io.internetdata.model.DomainDns;
+import io.internetdata.model.DomainHost;
 import io.internetdata.model.DomainIpRange;
 import io.internetdata.model.DomainIpRanges;
 import io.internetdata.model.DomainLookupResponse;
+import io.internetdata.model.DomainRedirects;
+import io.internetdata.model.DomainWeb;
+import io.internetdata.model.DomainWebLinks;
 import io.internetdata.model.Download;
 import io.internetdata.model.DownloadList;
 import io.internetdata.model.Entitlement;
@@ -120,6 +126,12 @@ final class RequiredMembers extends BeanDeserializerModifier {
             Map.entry(DnsCnameRecord.class, List.of("target", "last_seen")),
             Map.entry(DomainIpRanges.class, List.of("domain", "redirects_to", "total", "ipv4", "ranges")),
             Map.entry(DomainIpRange.class, List.of("range", "name", "country")),
+            Map.entry(DomainHost.class, List.of("ip", "asn")),
+            Map.entry(CohostedDomains.class, List.of("ip", "total", "domains")),
+            Map.entry(DomainWeb.class, List.of("url", "title", "description", "last_seen", "links")),
+            Map.entry(DomainWebLinks.class, List.of("total", "hosts")),
+            Map.entry(DomainRedirects.class, List.of("total", "domains")),
+            Map.entry(DomainBacklinks.class, List.of("total", "domains")),
             Map.entry(Entitlement.class, List.of("org_id", "apikey", "plan", "usage")),
             Map.entry(EntitlementApikey.class, List.of("id", "allowed_cidrs")),
             Map.entry(EntitlementPlan.class, List.of("key", "name", "tier")),

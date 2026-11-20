@@ -1,10 +1,16 @@
 package io.internetdata;
 
+import io.internetdata.model.CohostedDomains;
 import io.internetdata.model.DisposableDetail;
+import io.internetdata.model.DomainBacklinks;
 import io.internetdata.model.DomainDns;
+import io.internetdata.model.DomainHost;
 import io.internetdata.model.DomainIpRanges;
 import io.internetdata.model.DomainLookupResponse;
+import io.internetdata.model.DomainRedirects;
+import io.internetdata.model.DomainWeb;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -66,6 +72,19 @@ public final class DomainResult {
         return Optional.ofNullable(raw.getDns());
     }
 
+    /**
+     * The network announcing each address in {@code dns.a} and then {@code dns.aaaa}, empty where it
+     * resolves to none. Paid plans.
+     */
+    public Optional<List<DomainHost>> hosting() {
+        return Optional.ofNullable(raw.getHosting());
+    }
+
+    /** The other registered domains on its first IPv4 address, how many and the 10 most popular. Paid plans. */
+    public Optional<CohostedDomains> cohostedDomains() {
+        return Optional.ofNullable(raw.getCohostedDomains());
+    }
+
     /** The IP ranges of the organization behind the domain. Paid plans. */
     public Optional<DomainIpRanges> ipRanges() {
         return Optional.ofNullable(raw.getIpRanges());
@@ -74,6 +93,21 @@ public final class DomainResult {
     /** Detail for {@link #isDisposable()}, present and empty when it is false. Paid plans. */
     public Optional<DisposableDetail> disposable() {
         return Optional.ofNullable(raw.getDisposable());
+    }
+
+    /** What the crawl last read of its home page: its title, description and the hosts it links to. Paid plans. */
+    public Optional<DomainWeb> web() {
+        return Optional.ofNullable(raw.getWeb());
+    }
+
+    /** The registered domains whose home page redirects to it, how many and the 10 most popular. Paid plans. */
+    public Optional<DomainRedirects> redirects() {
+        return Optional.ofNullable(raw.getRedirects());
+    }
+
+    /** The registered domains whose home page links to it, how many and the 10 most popular. Paid plans. */
+    public Optional<DomainBacklinks> backlinks() {
+        return Optional.ofNullable(raw.getBacklinks());
     }
 
     /**

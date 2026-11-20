@@ -482,6 +482,75 @@ class ConformanceTest {
     }
 
     /**
+     * A list member a plan leaves out reads as absent, never as an empty list, by a lookup and by a
+     * batch: the generator starts each at {@code []}, so an answer without {@code web} would read as
+     * a false {@code is_web}, an AS without {@code prefixes} as one announcing nothing and a domain
+     * without {@code hosting} as one resolving to nothing.
+     */
+    @Test
+    void aListMemberThePlanLeavesOutIsAbsentNotEmpty() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode address = (ObjectNode) mapper.readTree(whole("1.1.1.1"));
+        address.remove("web");
+        ObjectNode asn = (ObjectNode) mapper.readTree(whole("asn/9009"));
+        for (String list : List.of("prefixes", "upstreams", "peers", "downstreams")) {
+            asn.remove(list);
+        }
+        ObjectNode domain = (ObjectNode) mapper.readTree(whole("domain/example.com"));
+        domain.remove("hosting");
+        ObjectNode other = address.deepCopy();
+        other.put("ip", "1.0.0.1");
+        StubHttpClient http = StubHttpClient.of(Map.of(
+                "1.1.1.1", StubHttpClient.Route.ok(mapper.writeValueAsString(address)),
+                "1.0.0.1", StubHttpClient.Route.ok(mapper.writeValueAsString(other)),
+                "asn/9009", StubHttpClient.Route.ok(mapper.writeValueAsString(asn)),
+                "domain/example.com", StubHttpClient.Route.ok(mapper.writeValueAsString(domain))));
+        try (InternetData client = clientOn(http).build()) {
+            assertEquals(Optional.empty(), client.lookup("1.1.1.1").web(), "a lookup's web");
+            AsnResult as = client.lookupAsn(9009);
+            assertEquals(Optional.empty(), as.prefixes(), "prefixes");
+            assertEquals(Optional.empty(), as.upstreams(), "upstreams");
+            assertEquals(Optional.empty(), as.peers(), "peers");
+            assertEquals(Optional.empty(), as.downstreams(), "downstreams");
+            assertEquals(Optional.empty(), client.lookupDomain("example.com").hosting(), "hosting");
+        }
+        try (InternetData client = clientOn(http).cacheEnabled(false).build()) {
+            Result batched = client.lookupBatch(List.of("1.1.1.1", "1.0.0.1")).get("1.1.1.1").orElseThrow();
+            assertEquals(Optional.empty(), batched.web(), "a batch entry's web");
+            assertEquals(2, http.batchSizes.get(0), "one POST /batch of both");
+        }
+    }
+
+    /** A paid domain answer's network on each address, co-hosted domains, home page, redirects and backlinks. */
+    @Test
+    void aPaidDomainAnswerReadsItsHostingWebAndReferrers() throws IOException {
+        StubHttpClient http = StubHttpClient.of(Map.of("domain/example.com",
+                StubHttpClient.Route.ok(whole("domain/example.com"))));
+        try (InternetData client = clientOn(http).build()) {
+            DomainResult d = client.lookupDomain("example.com");
+            assertEquals(List.of("192.0.2.10", "2001:db8::10"),
+                    d.hosting().orElseThrow().stream().map(h -> h.getIp()).toList());
+            assertEquals(64496L, d.hosting().orElseThrow().get(1).getAsn().getAsn().longValue());
+            assertEquals("2001:db8::/32", d.hosting().orElseThrow().get(1).getAsn().getPrefix());
+            assertEquals("192.0.2.10", d.cohostedDomains().orElseThrow().getIp());
+            assertEquals(3, d.cohostedDomains().orElseThrow().getTotal());
+            assertEquals(List.of("example.net", "example.org", "shop.example"),
+                    d.cohostedDomains().orElseThrow().getDomains());
+            assertEquals("https://example.com/", d.web().orElseThrow().getUrl());
+            assertEquals("Example Domain", d.web().orElseThrow().getTitle());
+            assertEquals("", d.web().orElseThrow().getDescription());
+            assertEquals("2026-11-18", d.web().orElseThrow().getLastSeen());
+            assertEquals(1, d.web().orElseThrow().getLinks().getTotal());
+            assertEquals(List.of("www.iana.org"), d.web().orElseThrow().getLinks().getHosts());
+            assertEquals(2, d.redirects().orElseThrow().getTotal());
+            assertEquals(List.of("example.net", "example.org"), d.redirects().orElseThrow().getDomains());
+            assertEquals(3, d.backlinks().orElseThrow().getTotal());
+            assertEquals(List.of("docs.example", "news.example", "wiki.example"),
+                    d.backlinks().orElseThrow().getDomains());
+        }
+    }
+
+    /**
      * One member per case, left out and then sent as null, from an otherwise whole answer: a body
      * missing several at once lets a decoder that defaults all but one of them pass.
      */
@@ -527,6 +596,13 @@ class ConformanceTest {
                 List.of("domain/example.com", "/dns/ns/0", "host", "last_seen"),
                 List.of("domain/example.com", "/ip_ranges", "domain", "redirects_to", "total", "ipv4", "ranges"),
                 List.of("domain/example.com", "/ip_ranges/ranges/0", "range", "name", "country"),
+                List.of("domain/example.com", "/hosting/0", "ip", "asn"),
+                List.of("domain/example.com", "/hosting/0/asn", "asn", "name", "domain", "type", "prefix"),
+                List.of("domain/example.com", "/cohosted_domains", "ip", "total", "domains"),
+                List.of("domain/example.com", "/web", "url", "title", "description", "last_seen", "links"),
+                List.of("domain/example.com", "/web/links", "total", "hosts"),
+                List.of("domain/example.com", "/redirects", "total", "domains"),
+                List.of("domain/example.com", "/backlinks", "total", "domains"),
                 List.of("api/v2/database/list", "/databases/0", "base", "name", "summary", "standing", "open", "versions"),
                 List.of("api/v2/database/list", "/databases/0/versions/0", "id", "version", "summary", "formats"),
                 List.of("api/v2/database/metadata", "", "id", "updated", "entries", "schema", "size"),
@@ -601,7 +677,13 @@ class ConformanceTest {
                 List.of("asn/9009", "", "num_ips", 1.5),
                 List.of("asn/9009", "/whois", "country", 5),
                 List.of("domain/example.com", "", "has_a", "true"),
-                List.of("domain/example.com", "/dns/mx/0", "priority", "10"));
+                List.of("domain/example.com", "/dns/mx/0", "priority", "10"),
+                List.of("domain/example.com", "/hosting/0/asn", "asn", "64496"),
+                List.of("domain/example.com", "/cohosted_domains", "total", "3"),
+                List.of("domain/example.com", "/web", "title", 1),
+                List.of("domain/example.com", "/web/links", "total", 1.5),
+                List.of("domain/example.com", "/redirects", "total", "2"),
+                List.of("domain/example.com", "/backlinks", "domains", "docs.example"));
         for (List<Object> each : cases) {
             String path = (String) each.get(0);
             JsonNode body = mapper.readTree(whole(path));
@@ -653,6 +735,11 @@ class ConformanceTest {
                 List.of("asn/9009", "", "prefixes", Arrays.asList((Object) null)),
                 List.of("asn/9009", "", "whois", Collections.singletonMap("country", null)),
                 List.of("domain/example.com", "/dns", "a", Arrays.asList((Object) null)),
+                List.of("domain/example.com", "", "hosting", Arrays.asList((Object) null)),
+                List.of("domain/example.com", "/cohosted_domains", "domains", Arrays.asList((Object) null)),
+                List.of("domain/example.com", "/web/links", "hosts", Arrays.asList((Object) null)),
+                List.of("domain/example.com", "/redirects", "domains", Arrays.asList((Object) null)),
+                List.of("domain/example.com", "/backlinks", "domains", Arrays.asList((Object) null)),
                 List.of("api/v1/entitlement", "/apikey", "allowed_cidrs", Arrays.asList((Object) null)),
                 List.of("api/v1/entitlement", "/plan", "tier", 3),
                 List.of("api/v1/entitlement", "/plan", "tier", false));
@@ -1450,8 +1537,13 @@ class ConformanceTest {
             case "has_ns" -> Optional.ofNullable(r.raw().getHasNs()).map(b -> r.hasNs());
             case "has_cname" -> Optional.ofNullable(r.raw().getHasCname()).map(b -> r.hasCname());
             case "dns" -> r.dns();
+            case "hosting" -> r.hosting();
+            case "cohosted_domains" -> r.cohostedDomains();
             case "ip_ranges" -> r.ipRanges();
             case "disposable" -> r.disposable();
+            case "web" -> r.web();
+            case "redirects" -> r.redirects();
+            case "backlinks" -> r.backlinks();
             case "trial_expired" -> r.trialExpired();
             case "cap_reached" -> r.capReached();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);

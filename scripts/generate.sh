@@ -61,6 +61,7 @@ MODELS="${MODELS}:Location:Asn:Company:AbuseContact:Whois:Rwhois:HostedDomains"
 MODELS="${MODELS}:AsnLookupResponse:AsnPrefix:AsnHostedDomains"
 MODELS="${MODELS}:DomainLookupResponse:DomainDns:DnsAddressRecord:DnsMxRecord:DnsNsRecord:DnsCnameRecord"
 MODELS="${MODELS}:DomainIpRanges:DomainIpRange:DisposableDetail"
+MODELS="${MODELS}:DomainHost:CohostedDomains:DomainWeb:DomainWebLinks:DomainRedirects:DomainBacklinks"
 MODELS="${MODELS}:BatchLookupRequest:BatchLookupResponse:BatchLookupResponse_results_value:BatchLookupError"
 MODELS="${MODELS}:Entitlement:EntitlementApikey:EntitlementPlan:EntitlementUsage"
 # The refusal envelopes, which the generated API classes import.

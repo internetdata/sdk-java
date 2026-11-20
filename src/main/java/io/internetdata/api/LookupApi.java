@@ -410,7 +410,7 @@ public class LookupApi {
 
   /**
    * Domain lookup
-   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the organization&#39;s IP ranges and whether it is a disposable email domain. An internationalized name is answered under its punycode spelling. 
+   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the network announcing each address, the other domains on its first IPv4 address, the organization&#39;s IP ranges, whether it is a disposable email domain, what its home page says of itself and links to, and the domains whose home page redirects or links to it. An internationalized name is answered under its punycode spelling. 
    * @param domain The domain to look up. (required)
    * @return DomainLookupResponse
    * @throws ApiException if fails to make API call
@@ -421,7 +421,7 @@ public class LookupApi {
 
   /**
    * Domain lookup
-   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the organization&#39;s IP ranges and whether it is a disposable email domain. An internationalized name is answered under its punycode spelling. 
+   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the network announcing each address, the other domains on its first IPv4 address, the organization&#39;s IP ranges, whether it is a disposable email domain, what its home page says of itself and links to, and the domains whose home page redirects or links to it. An internationalized name is answered under its punycode spelling. 
    * @param domain The domain to look up. (required)
    * @param headers Optional headers to include in the request
    * @return DomainLookupResponse
@@ -434,7 +434,7 @@ public class LookupApi {
 
   /**
    * Domain lookup
-   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the organization&#39;s IP ranges and whether it is a disposable email domain. An internationalized name is answered under its punycode spelling. 
+   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the network announcing each address, the other domains on its first IPv4 address, the organization&#39;s IP ranges, whether it is a disposable email domain, what its home page says of itself and links to, and the domains whose home page redirects or links to it. An internationalized name is answered under its punycode spelling. 
    * @param domain The domain to look up. (required)
    * @return ApiResponse&lt;DomainLookupResponse&gt;
    * @throws ApiException if fails to make API call
@@ -445,7 +445,7 @@ public class LookupApi {
 
   /**
    * Domain lookup
-   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the organization&#39;s IP ranges and whether it is a disposable email domain. An internationalized name is answered under its punycode spelling. 
+   * Answers what InternetData knows about one domain from its latest snapshots: on every plan whether it is registered and which DNS record types it has; on a paid one the records themselves, up to 100 a type, the network announcing each address, the other domains on its first IPv4 address, the organization&#39;s IP ranges, whether it is a disposable email domain, what its home page says of itself and links to, and the domains whose home page redirects or links to it. An internationalized name is answered under its punycode spelling. 
    * @param domain The domain to look up. (required)
    * @param headers Optional headers to include in the request
    * @return ApiResponse&lt;DomainLookupResponse&gt;

@@ -24,10 +24,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.internetdata.model.CohostedDomains;
 import io.internetdata.model.DisposableDetail;
+import io.internetdata.model.DomainBacklinks;
 import io.internetdata.model.DomainDns;
+import io.internetdata.model.DomainHost;
 import io.internetdata.model.DomainIpRanges;
+import io.internetdata.model.DomainRedirects;
+import io.internetdata.model.DomainWeb;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
@@ -45,8 +52,13 @@ import io.internetdata.internal.ApiClient;
   DomainLookupResponse.JSON_PROPERTY_HAS_NS,
   DomainLookupResponse.JSON_PROPERTY_HAS_CNAME,
   DomainLookupResponse.JSON_PROPERTY_DNS,
+  DomainLookupResponse.JSON_PROPERTY_HOSTING,
+  DomainLookupResponse.JSON_PROPERTY_COHOSTED_DOMAINS,
   DomainLookupResponse.JSON_PROPERTY_IP_RANGES,
   DomainLookupResponse.JSON_PROPERTY_DISPOSABLE,
+  DomainLookupResponse.JSON_PROPERTY_WEB,
+  DomainLookupResponse.JSON_PROPERTY_REDIRECTS,
+  DomainLookupResponse.JSON_PROPERTY_BACKLINKS,
   DomainLookupResponse.JSON_PROPERTY_TRIAL_EXPIRED,
   DomainLookupResponse.JSON_PROPERTY_CAP_REACHED
 })
@@ -88,6 +100,14 @@ public class DomainLookupResponse {
   @javax.annotation.Nullable
   private DomainDns dns;
 
+  public static final String JSON_PROPERTY_HOSTING = "hosting";
+  @javax.annotation.Nullable
+  private List<DomainHost> hosting = new ArrayList<>();
+
+  public static final String JSON_PROPERTY_COHOSTED_DOMAINS = "cohosted_domains";
+  @javax.annotation.Nullable
+  private CohostedDomains cohostedDomains;
+
   public static final String JSON_PROPERTY_IP_RANGES = "ip_ranges";
   @javax.annotation.Nullable
   private DomainIpRanges ipRanges;
@@ -95,6 +115,18 @@ public class DomainLookupResponse {
   public static final String JSON_PROPERTY_DISPOSABLE = "disposable";
   @javax.annotation.Nullable
   private DisposableDetail disposable;
+
+  public static final String JSON_PROPERTY_WEB = "web";
+  @javax.annotation.Nullable
+  private DomainWeb web;
+
+  public static final String JSON_PROPERTY_REDIRECTS = "redirects";
+  @javax.annotation.Nullable
+  private DomainRedirects redirects;
+
+  public static final String JSON_PROPERTY_BACKLINKS = "backlinks";
+  @javax.annotation.Nullable
+  private DomainBacklinks backlinks;
 
   public static final String JSON_PROPERTY_TRIAL_EXPIRED = "trial_expired";
   @javax.annotation.Nullable
@@ -323,6 +355,62 @@ public class DomainLookupResponse {
   }
 
 
+  public DomainLookupResponse hosting(@javax.annotation.Nullable List<DomainHost> hosting) {
+    this.hosting = hosting;
+    return this;
+  }
+
+  public DomainLookupResponse addHostingItem(DomainHost hostingItem) {
+    if (this.hosting == null) {
+      this.hosting = new ArrayList<>();
+    }
+    this.hosting.add(hostingItem);
+    return this;
+  }
+
+  /**
+   * The network announcing each address in &#x60;dns.a&#x60; and then &#x60;dns.aaaa&#x60;, from IP ASN; &#x60;[]&#x60; where it resolves to none. Paid plans and the trial.
+   * @return hosting
+   */
+  @javax.annotation.Nullable
+  @JsonProperty(value = JSON_PROPERTY_HOSTING, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public List<DomainHost> getHosting() {
+    return hosting;
+  }
+
+
+  @JsonProperty(value = JSON_PROPERTY_HOSTING, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public void setHosting(@javax.annotation.Nullable List<DomainHost> hosting) {
+    this.hosting = hosting;
+  }
+
+
+  public DomainLookupResponse cohostedDomains(@javax.annotation.Nullable CohostedDomains cohostedDomains) {
+    this.cohostedDomains = cohostedDomains;
+    return this;
+  }
+
+  /**
+   * Get cohostedDomains
+   * @return cohostedDomains
+   */
+  @javax.annotation.Nullable
+  @JsonProperty(value = JSON_PROPERTY_COHOSTED_DOMAINS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public CohostedDomains getCohostedDomains() {
+    return cohostedDomains;
+  }
+
+
+  @JsonProperty(value = JSON_PROPERTY_COHOSTED_DOMAINS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public void setCohostedDomains(@javax.annotation.Nullable CohostedDomains cohostedDomains) {
+    this.cohostedDomains = cohostedDomains;
+  }
+
+
   public DomainLookupResponse ipRanges(@javax.annotation.Nullable DomainIpRanges ipRanges) {
     this.ipRanges = ipRanges;
     return this;
@@ -368,6 +456,78 @@ public class DomainLookupResponse {
   @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
   public void setDisposable(@javax.annotation.Nullable DisposableDetail disposable) {
     this.disposable = disposable;
+  }
+
+
+  public DomainLookupResponse web(@javax.annotation.Nullable DomainWeb web) {
+    this.web = web;
+    return this;
+  }
+
+  /**
+   * Get web
+   * @return web
+   */
+  @javax.annotation.Nullable
+  @JsonProperty(value = JSON_PROPERTY_WEB, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public DomainWeb getWeb() {
+    return web;
+  }
+
+
+  @JsonProperty(value = JSON_PROPERTY_WEB, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public void setWeb(@javax.annotation.Nullable DomainWeb web) {
+    this.web = web;
+  }
+
+
+  public DomainLookupResponse redirects(@javax.annotation.Nullable DomainRedirects redirects) {
+    this.redirects = redirects;
+    return this;
+  }
+
+  /**
+   * Get redirects
+   * @return redirects
+   */
+  @javax.annotation.Nullable
+  @JsonProperty(value = JSON_PROPERTY_REDIRECTS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public DomainRedirects getRedirects() {
+    return redirects;
+  }
+
+
+  @JsonProperty(value = JSON_PROPERTY_REDIRECTS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public void setRedirects(@javax.annotation.Nullable DomainRedirects redirects) {
+    this.redirects = redirects;
+  }
+
+
+  public DomainLookupResponse backlinks(@javax.annotation.Nullable DomainBacklinks backlinks) {
+    this.backlinks = backlinks;
+    return this;
+  }
+
+  /**
+   * Get backlinks
+   * @return backlinks
+   */
+  @javax.annotation.Nullable
+  @JsonProperty(value = JSON_PROPERTY_BACKLINKS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public DomainBacklinks getBacklinks() {
+    return backlinks;
+  }
+
+
+  @JsonProperty(value = JSON_PROPERTY_BACKLINKS, required = false)
+  @JsonInclude(value = JsonInclude.Include.USE_DEFAULTS)
+  public void setBacklinks(@javax.annotation.Nullable DomainBacklinks backlinks) {
+    this.backlinks = backlinks;
   }
 
 
@@ -440,15 +600,20 @@ public class DomainLookupResponse {
         Objects.equals(this.hasNs, domainLookupResponse.hasNs) &&
         Objects.equals(this.hasCname, domainLookupResponse.hasCname) &&
         Objects.equals(this.dns, domainLookupResponse.dns) &&
+        Objects.equals(this.hosting, domainLookupResponse.hosting) &&
+        Objects.equals(this.cohostedDomains, domainLookupResponse.cohostedDomains) &&
         Objects.equals(this.ipRanges, domainLookupResponse.ipRanges) &&
         Objects.equals(this.disposable, domainLookupResponse.disposable) &&
+        Objects.equals(this.web, domainLookupResponse.web) &&
+        Objects.equals(this.redirects, domainLookupResponse.redirects) &&
+        Objects.equals(this.backlinks, domainLookupResponse.backlinks) &&
         Objects.equals(this.trialExpired, domainLookupResponse.trialExpired) &&
         Objects.equals(this.capReached, domainLookupResponse.capReached);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(domain, isRegistered, isDisposable, hasA, hasAaaa, hasMx, hasNs, hasCname, dns, ipRanges, disposable, trialExpired, capReached);
+    return Objects.hash(domain, isRegistered, isDisposable, hasA, hasAaaa, hasMx, hasNs, hasCname, dns, hosting, cohostedDomains, ipRanges, disposable, web, redirects, backlinks, trialExpired, capReached);
   }
 
   @Override
@@ -464,8 +629,13 @@ public class DomainLookupResponse {
     sb.append("    hasNs: ").append(toIndentedString(hasNs)).append("\n");
     sb.append("    hasCname: ").append(toIndentedString(hasCname)).append("\n");
     sb.append("    dns: ").append(toIndentedString(dns)).append("\n");
+    sb.append("    hosting: ").append(toIndentedString(hosting)).append("\n");
+    sb.append("    cohostedDomains: ").append(toIndentedString(cohostedDomains)).append("\n");
     sb.append("    ipRanges: ").append(toIndentedString(ipRanges)).append("\n");
     sb.append("    disposable: ").append(toIndentedString(disposable)).append("\n");
+    sb.append("    web: ").append(toIndentedString(web)).append("\n");
+    sb.append("    redirects: ").append(toIndentedString(redirects)).append("\n");
+    sb.append("    backlinks: ").append(toIndentedString(backlinks)).append("\n");
     sb.append("    trialExpired: ").append(toIndentedString(trialExpired)).append("\n");
     sb.append("    capReached: ").append(toIndentedString(capReached)).append("\n");
     sb.append("}");
@@ -557,6 +727,21 @@ public class DomainLookupResponse {
       joiner.add(getDns().toUrlQueryString(prefix + "dns" + suffix));
     }
 
+    // add `hosting` to the URL query string
+    if (getHosting() != null) {
+      for (int i = 0; i < getHosting().size(); i++) {
+        if (getHosting().get(i) != null) {
+          joiner.add(getHosting().get(i).toUrlQueryString(String.format(java.util.Locale.ROOT, "%shosting%s%s", prefix, suffix,
+          "".equals(suffix) ? "" : String.format(java.util.Locale.ROOT, "%s%d%s", containerPrefix, i, containerSuffix))));
+        }
+      }
+    }
+
+    // add `cohosted_domains` to the URL query string
+    if (getCohostedDomains() != null) {
+      joiner.add(getCohostedDomains().toUrlQueryString(prefix + "cohosted_domains" + suffix));
+    }
+
     // add `ip_ranges` to the URL query string
     if (getIpRanges() != null) {
       joiner.add(getIpRanges().toUrlQueryString(prefix + "ip_ranges" + suffix));
@@ -565,6 +750,21 @@ public class DomainLookupResponse {
     // add `disposable` to the URL query string
     if (getDisposable() != null) {
       joiner.add(getDisposable().toUrlQueryString(prefix + "disposable" + suffix));
+    }
+
+    // add `web` to the URL query string
+    if (getWeb() != null) {
+      joiner.add(getWeb().toUrlQueryString(prefix + "web" + suffix));
+    }
+
+    // add `redirects` to the URL query string
+    if (getRedirects() != null) {
+      joiner.add(getRedirects().toUrlQueryString(prefix + "redirects" + suffix));
+    }
+
+    // add `backlinks` to the URL query string
+    if (getBacklinks() != null) {
+      joiner.add(getBacklinks().toUrlQueryString(prefix + "backlinks" + suffix));
     }
 
     // add `trial_expired` to the URL query string
