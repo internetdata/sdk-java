@@ -207,7 +207,7 @@ public final class InternetData implements AutoCloseable {
     private Result fetch(String ip, LookupOptions options) {
         LookupApi wire = lookupApi(options);
         Result result = Wire.execute(retries(options),
-                () -> Result.of(Wire.answer(wire.lookupIpWithHttpInfo(ip), "lookup answer")));
+                () -> Result.of(Wire.answer(wire.lookupIpWithHttpInfo(ip, null), "lookup answer")));
         if (cache != null) {
             cache.put(ip, result);
         }
@@ -273,7 +273,7 @@ public final class InternetData implements AutoCloseable {
         Objects.requireNonNull(options, "options");
         LookupApi wire = lookupApi(options);
         return Wire.execute(retries(options),
-                () -> Result.of(Wire.answer(wire.lookupMyIpWithHttpInfo(), "lookup answer")));
+                () -> Result.of(Wire.answer(wire.lookupMyIpWithHttpInfo(null), "lookup answer")));
     }
 
     public CompletableFuture<Result> myIpAsync() {
@@ -659,7 +659,7 @@ public final class InternetData implements AutoCloseable {
         try {
             body = Wire.execute(callRetries,
                     () -> Wire.answer(wire.lookupBatchWithHttpInfo(
-                            new BatchLookupRequest().ips(chunk).asns(null).domains(null)), "batch answer"));
+                            new BatchLookupRequest().ips(chunk).asns(null).domains(null).userAgents(null)), "batch answer"));
         } catch (InternetDataException e) {
             return failedChunk(chunk, e);
         }
@@ -706,8 +706,8 @@ public final class InternetData implements AutoCloseable {
     }
 
     // How long a cached answer lives: the client's TTL, but a minute at most for one whose
-    // trial_expired or cap_reached is true. That answer is the reduced one until the day's trial
-    // resets or the cap is raised, so a whole TTL would keep serving it after either; it stays
+    // trial_expired or cap_reached is true. That answer is the reduced one until a new UTC month
+    // renews the trial or the cap is raised, so a whole TTL would keep serving it after either; it stays
     // cached for that minute, so a busy address does not go to the API on every repeat. An answer
     // that replaces another takes its own life, and reading one never extends it.
     private static final class AnswerLife implements Expiry<String, Result> {

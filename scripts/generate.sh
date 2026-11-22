@@ -57,7 +57,7 @@ MODELS="${MODELS}:OauthMetadata:DeviceAuthorization:TokenResponse:ClientRegistra
 # What the lookups answer, every schema they reach named, since the allowlist follows no $ref.
 MODELS="${MODELS}:LookupResponse:ClassDetail:ProxyDetail:PubproxyDetail:CarrierDetail:SatelliteDetail"
 MODELS="${MODELS}:SshDetail:SmtpDetail:WebDetail:DnsResolverDetail:BitTorrentDetail"
-MODELS="${MODELS}:Location:Asn:Company:AbuseContact:Whois:Rwhois:HostedDomains"
+MODELS="${MODELS}:Location:Asn:Company:AbuseContact:Whois:Rwhois:HostedDomains:BotDetail:UserAgentVerdict"
 MODELS="${MODELS}:AsnLookupResponse:AsnPrefix:AsnHostedDomains"
 MODELS="${MODELS}:DomainLookupResponse:DomainDns:DnsAddressRecord:DnsMxRecord:DnsNsRecord:DnsCnameRecord"
 MODELS="${MODELS}:DomainIpRanges:DomainIpRange:DisposableDetail"

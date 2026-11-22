@@ -132,14 +132,15 @@ final class StubHttpClient extends HttpClient {
     /** The same, with {@code extra} members, written as JSON without their braces, beside them. */
     static String answer(String ip, String extra) {
         return "{\"ip\": \"" + ip + "\", \"is_bogon\": false, \"is_tor\": false, \"is_relay\": false,"
-                + " \"is_anycast\": false, \"is_carrier\": false, \"is_satellite\": false, \"is_ssh\": false,"
-                + " \"is_smtp\": false, \"is_web\": false, \"is_dns_resolver\": false, \"is_bittorrent\": false,"
+                + " \"is_bot\": false, \"is_anycast\": false, \"is_carrier\": false, \"is_satellite\": false,"
+                + " \"is_ssh\": false, \"is_smtp\": false, \"is_web\": false, \"is_dns_resolver\": false, \"is_bittorrent\": false,"
                 + " \"tor\": {}, \"relay\": {}, \"location\": {\"continent\": \"EU\", \"continent_name\": \"Europe\","
                 + " \"country\": \"AT\", \"country_name\": \"Austria\", \"timezone\": \"Europe/Vienna\","
                 + " \"currency_code\": \"EUR\", \"currency_name\": \"Euro\", \"currency_symbol\": \"E\","
                 + " \"flag_emoji\": \"\", \"flag_unicode\": \"U+1F1E6 U+1F1F9\"}, \"asn\": {\"asn\": 9009,"
                 + " \"name\": \"M247 Europe SRL\", \"domain\": \"m247global.com\", \"type\": \"hosting\","
-                + " \"prefix\": \"146.70.116.0/24\"}, \"company\": {\"name\": \"M247\", \"domain\": \"m247.ro\"},"
+                + " \"prefix\": \"146.70.116.0/24\", \"country\": \"RO\", \"rpki_status\": \"not_found\"},"
+                + " \"company\": {\"name\": \"M247\", \"domain\": \"m247.ro\"},"
                 + " \"hostname\": \"\", \"abuse\": {\"email\": \"abuse@m247.ro\"}"
                 + (extra == null ? "" : ", " + extra) + "}";
     }

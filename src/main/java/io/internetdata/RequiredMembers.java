@@ -58,6 +58,7 @@ import io.internetdata.model.HostedDomains;
 import io.internetdata.model.Location;
 import io.internetdata.model.LookupResponse;
 import io.internetdata.model.Rwhois;
+import io.internetdata.model.UserAgentVerdict;
 import io.internetdata.model.WebDetail;
 import io.internetdata.model.Whois;
 
@@ -99,14 +100,15 @@ final class RequiredMembers extends BeanDeserializerModifier {
      */
     static final Map<Class<?>, List<String>> MEMBERS = Map.ofEntries(
             Map.entry(LookupResponse.class, List.of("ip", "is_bogon", "is_tor", "is_relay", "is_anycast",
-                    "is_carrier", "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent",
-                    "tor", "relay", "location", "asn", "company", "hostname", "abuse")),
+                    "is_bot", "is_carrier", "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver",
+                    "is_bittorrent", "tor", "relay", "location", "asn", "company", "hostname", "abuse")),
             Map.entry(WebDetail.class, List.of("port", "tls_ok", "session_ok", "status_code", "server", "location",
                     "title", "cert_subject_cn", "cert_subject_o", "cert_issuer_dn", "cert_browser_trusted",
                     "tls_version", "first_seen", "last_seen")),
             Map.entry(Location.class, List.of("continent", "continent_name", "country", "country_name", "timezone",
                     "currency_code", "currency_name", "currency_symbol", "flag_emoji", "flag_unicode")),
-            Map.entry(Asn.class, List.of("asn", "name", "domain", "type", "prefix")),
+            Map.entry(Asn.class, List.of("asn", "name", "domain", "type", "prefix", "country", "rpki_status")),
+            Map.entry(UserAgentVerdict.class, List.of("agent", "kind", "verdict")),
             Map.entry(Company.class, List.of("name", "domain")),
             Map.entry(AbuseContact.class, List.of("email")),
             Map.entry(Whois.class, List.of("id", "name", "org", "country", "status", "source", "domain",

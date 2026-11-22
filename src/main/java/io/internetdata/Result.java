@@ -3,6 +3,7 @@ package io.internetdata;
 import io.internetdata.model.AbuseContact;
 import io.internetdata.model.Asn;
 import io.internetdata.model.BitTorrentDetail;
+import io.internetdata.model.BotDetail;
 import io.internetdata.model.CarrierDetail;
 import io.internetdata.model.ClassDetail;
 import io.internetdata.model.Company;
@@ -16,6 +17,7 @@ import io.internetdata.model.Rwhois;
 import io.internetdata.model.SatelliteDetail;
 import io.internetdata.model.SmtpDetail;
 import io.internetdata.model.SshDetail;
+import io.internetdata.model.UserAgentVerdict;
 import io.internetdata.model.WebDetail;
 import io.internetdata.model.Whois;
 
@@ -71,6 +73,7 @@ public final class Result {
                 .isPubproxy(false)
                 .isHosting(false)
                 .isCdn(false)
+                .isBot(false)
                 .isAnycast(false)
                 .isCarrier(false)
                 .isSatellite(false)
@@ -88,6 +91,7 @@ public final class Result {
                 .pubproxy(new PubproxyDetail())
                 .hosting(new ClassDetail())
                 .cdn(new ClassDetail())
+                .bot(new BotDetail())
                 .carrier(new CarrierDetail())
                 .satellite(new SatelliteDetail())
                 .ssh(new SshDetail())
@@ -116,7 +120,7 @@ public final class Result {
                         .geonameId("")
                         .dmaCode("")
                         .lastChanged(""))
-                .asn(new Asn().asn(0).name("").domain("").type("").prefix("").country("").rpkiStatus(""))
+                .asn(new Asn().asn(0L).name("").domain("").type("").prefix("").country("").rpkiStatus(""))
                 .company(new Company().name("").domain("").type("").country(""))
                 .hostname("")
                 .abuse(new AbuseContact()
@@ -137,7 +141,7 @@ public final class Result {
                         .source("")
                         .domain("")
                         .abuseEmail("")
-                        .asn(0))
+                        .asn(0L))
                 .rwhois(new Rwhois().id("").name("").country("").source("").domain("").abuseEmail(""))
                 .hostedDomains(new HostedDomains().total(0).domains(new ArrayList<>()));
         return new Result(r);
@@ -194,6 +198,15 @@ public final class Result {
 
     public Optional<Boolean> isCdn() {
         return Optional.ofNullable(raw.getIsCdn());
+    }
+
+    /**
+     * In Bot IP: an automated client's address, such as a search engine's or an AI company's crawler,
+     * an uptime monitor, an internet scanner or a webhook sender. Every plan includes this; {@link
+     * #bot()} says whose.
+     */
+    public boolean isBot() {
+        return Boolean.TRUE.equals(raw.getIsBot());
     }
 
     public boolean isAnycast() {
@@ -268,6 +281,14 @@ public final class Result {
         return Optional.ofNullable(raw.getCdn());
     }
 
+    /**
+     * Whose bot uses the address, what it does and whether its operator vouches for the address:
+     * empty, every member left out, when {@link #isBot()} is false. Paid plans.
+     */
+    public Optional<BotDetail> bot() {
+        return Optional.ofNullable(raw.getBot());
+    }
+
     public Optional<CarrierDetail> carrier() {
         return Optional.ofNullable(raw.getCarrier());
     }
@@ -336,6 +357,15 @@ public final class Result {
 
     public Optional<HostedDomains> hostedDomains() {
         return Optional.ofNullable(raw.getHostedDomains());
+    }
+
+    /**
+     * The agent a user agent sent with the lookup names, what kind of client it says it is, and
+     * whether this address bears it out. Only on an answer with every field to a request that sent
+     * one; this client sends none yet.
+     */
+    public Optional<UserAgentVerdict> userAgent() {
+        return Optional.ofNullable(raw.getUserAgent());
     }
 
     /**

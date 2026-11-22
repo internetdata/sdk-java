@@ -564,13 +564,13 @@ class ConformanceTest {
             call(decodes, path);
         }
         List<List<String>> cases = List.of(
-                List.of("1.1.1.1", "", "ip", "is_bogon", "is_tor", "is_relay", "is_anycast", "is_carrier",
+                List.of("1.1.1.1", "", "ip", "is_bogon", "is_tor", "is_relay", "is_bot", "is_anycast", "is_carrier",
                         "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent", "tor",
                         "relay", "location", "asn", "company", "hostname", "abuse"),
                 List.of("myip", "", "ip", "is_bogon", "location"),
                 List.of("1.1.1.1", "/location", "continent", "continent_name", "country", "country_name", "timezone",
                         "currency_code", "currency_name", "currency_symbol", "flag_emoji", "flag_unicode"),
-                List.of("1.1.1.1", "/asn", "asn", "name", "domain", "type", "prefix"),
+                List.of("1.1.1.1", "/asn", "asn", "name", "domain", "type", "prefix", "country", "rpki_status"),
                 List.of("1.1.1.1", "/company", "name", "domain"),
                 List.of("1.1.1.1", "/abuse", "email"),
                 List.of("1.1.1.1", "/whois", "id", "name", "org", "country", "status", "source", "domain",
@@ -597,7 +597,8 @@ class ConformanceTest {
                 List.of("domain/example.com", "/ip_ranges", "domain", "redirects_to", "total", "ipv4", "ranges"),
                 List.of("domain/example.com", "/ip_ranges/ranges/0", "range", "name", "country"),
                 List.of("domain/example.com", "/hosting/0", "ip", "asn"),
-                List.of("domain/example.com", "/hosting/0/asn", "asn", "name", "domain", "type", "prefix"),
+                List.of("domain/example.com", "/hosting/0/asn", "asn", "name", "domain", "type", "prefix", "country",
+                        "rpki_status"),
                 List.of("domain/example.com", "/cohosted_domains", "ip", "total", "domains"),
                 List.of("domain/example.com", "/web", "url", "title", "description", "last_seen", "links"),
                 List.of("domain/example.com", "/web/links", "total", "hosts"),
@@ -889,7 +890,7 @@ class ConformanceTest {
                 io.internetdata.model.CarrierDetail.class, io.internetdata.model.SatelliteDetail.class,
                 io.internetdata.model.SshDetail.class, io.internetdata.model.SmtpDetail.class,
                 io.internetdata.model.DnsResolverDetail.class, io.internetdata.model.BitTorrentDetail.class,
-                io.internetdata.model.DisposableDetail.class);
+                io.internetdata.model.DisposableDetail.class, io.internetdata.model.BotDetail.class);
         Set<Class<?>> reached = new LinkedHashSet<>();
         List<Class<?>> pending = new ArrayList<>(envelopes);
         pending.add(io.internetdata.model.DatabaseMetadata.class);
@@ -1456,6 +1457,7 @@ class ConformanceTest {
             case "is_pubproxy" -> r.isPubproxy();
             case "is_hosting" -> r.isHosting();
             case "is_cdn" -> r.isCdn();
+            case "is_bot" -> Optional.of(r.isBot());
             case "is_anycast" -> Optional.of(r.isAnycast());
             case "is_carrier" -> Optional.of(r.isCarrier());
             case "is_satellite" -> Optional.of(r.isSatellite());
@@ -1473,6 +1475,7 @@ class ConformanceTest {
             case "pubproxy" -> r.pubproxy();
             case "hosting" -> r.hosting();
             case "cdn" -> r.cdn();
+            case "bot" -> r.bot();
             case "carrier" -> r.carrier();
             case "satellite" -> r.satellite();
             case "ssh" -> r.ssh();
@@ -1488,6 +1491,7 @@ class ConformanceTest {
             case "whois" -> r.whois();
             case "rwhois" -> r.rwhois();
             case "hosted_domains" -> r.hostedDomains();
+            case "user_agent" -> r.userAgent();
             case "trial_expired" -> r.trialExpired();
             case "cap_reached" -> r.capReached();
             default -> throw new IllegalArgumentException("the corpus names a member this SDK lacks: " + wire);

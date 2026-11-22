@@ -111,8 +111,8 @@ public final class DomainResult {
     }
 
     /**
-     * On answers to a key on the free plan only: {@code false} while its organization's daily
-     * trial lasts, {@code true} once the answer has Unlimited's.
+     * On answers to a key on the free plan only: {@code false} while its organization's trial of
+     * every field lasts, {@code true} once the answer has Unlimited's.
      */
     public Optional<Boolean> trialExpired() {
         return Optional.ofNullable(raw.getTrialExpired());
