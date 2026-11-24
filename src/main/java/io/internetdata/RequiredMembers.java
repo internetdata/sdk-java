@@ -26,6 +26,9 @@ import io.internetdata.model.AsnLookupResponse;
 import io.internetdata.model.AsnPrefix;
 import io.internetdata.model.BatchLookupError;
 import io.internetdata.model.BatchLookupResponse;
+import io.internetdata.model.BitTorrentDetail;
+import io.internetdata.model.BotDetail;
+import io.internetdata.model.ClassDetail;
 import io.internetdata.model.CohostedDomains;
 import io.internetdata.model.Company;
 import io.internetdata.model.Database;
@@ -35,10 +38,12 @@ import io.internetdata.model.DatabaseList;
 import io.internetdata.model.DatabaseMetadata;
 import io.internetdata.model.DatabaseMetadataColumn;
 import io.internetdata.model.DatabaseVersion;
+import io.internetdata.model.DisposableDetail;
 import io.internetdata.model.DnsAddressRecord;
 import io.internetdata.model.DnsCnameRecord;
 import io.internetdata.model.DnsMxRecord;
 import io.internetdata.model.DnsNsRecord;
+import io.internetdata.model.DnsResolverDetail;
 import io.internetdata.model.DomainBacklinks;
 import io.internetdata.model.DomainDns;
 import io.internetdata.model.DomainHost;
@@ -57,7 +62,11 @@ import io.internetdata.model.EntitlementUsage;
 import io.internetdata.model.HostedDomains;
 import io.internetdata.model.Location;
 import io.internetdata.model.LookupResponse;
+import io.internetdata.model.ProxyDetail;
+import io.internetdata.model.PubproxyDetail;
 import io.internetdata.model.Rwhois;
+import io.internetdata.model.SmtpDetail;
+import io.internetdata.model.SshDetail;
 import io.internetdata.model.UserAgentVerdict;
 import io.internetdata.model.WebDetail;
 import io.internetdata.model.Whois;
@@ -156,6 +165,29 @@ final class RequiredMembers extends BeanDeserializerModifier {
     static final Set<Class<?>> ANSWERS = Set.of(LookupResponse.class, AsnLookupResponse.class,
             DomainLookupResponse.class);
 
+    /**
+     * The days an answer hands back as the served string, by model, each of which must be RFC 3339's
+     * full-date on a real day. The spec types them {@code format: date} from 2026.11.23, and
+     * {@code scripts/keep_types.py} keeps each a {@code String}, so no date reader sees them; a test
+     * holds this table to that script's list.
+     */
+    static final Map<Class<?>, Set<String>> DAYS = Map.ofEntries(
+            Map.entry(ClassDetail.class, Set.of("last_seen")),
+            Map.entry(ProxyDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(PubproxyDetail.class, Set.of("last_seen")),
+            Map.entry(BotDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(SshDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(SmtpDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(WebDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(DnsResolverDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(BitTorrentDetail.class, Set.of("first_seen", "last_seen")),
+            Map.entry(AsnPrefix.class, Set.of("first_seen")),
+            Map.entry(DnsAddressRecord.class, Set.of("last_seen")),
+            Map.entry(DnsMxRecord.class, Set.of("last_seen")),
+            Map.entry(DnsNsRecord.class, Set.of("last_seen")),
+            Map.entry(DnsCnameRecord.class, Set.of("last_seen")),
+            Map.entry(DisposableDetail.class, Set.of("first_seen", "last_seen")));
+
     /** The members whose entries the spec types as objects, by model, which no generated type checks. */
     static final Map<Class<?>, String> OBJECT_ROWS = Map.of(DatabaseMetadata.class, "sample");
 
@@ -209,7 +241,7 @@ final class RequiredMembers extends BeanDeserializerModifier {
             leftOut.removeAll(members);
         }
         return new Requiring(deserializer, members, Set.copyOf(lists), Set.copyOf(maps), OBJECT_ROWS.get(model),
-                Set.copyOf(leftOut));
+                Set.copyOf(leftOut), DAYS.getOrDefault(model, Set.of()));
     }
 
     /**
@@ -231,20 +263,22 @@ final class RequiredMembers extends BeanDeserializerModifier {
         private final Set<String> maps;
         private final String objectRows;
         private final Set<String> leftOut;
+        private final Set<String> days;
 
         Requiring(JsonDeserializer<?> delegate, List<String> members, Set<String> lists, Set<String> maps,
-                String objectRows, Set<String> leftOut) {
+                String objectRows, Set<String> leftOut, Set<String> days) {
             super(delegate);
             this.members = members;
             this.lists = lists;
             this.maps = maps;
             this.objectRows = objectRows;
             this.leftOut = leftOut;
+            this.days = days;
         }
 
         @Override
         protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> delegate) {
-            return new Requiring(delegate, members, lists, maps, objectRows, leftOut);
+            return new Requiring(delegate, members, lists, maps, objectRows, leftOut, days);
         }
 
         @Override
@@ -257,6 +291,13 @@ final class RequiredMembers extends BeanDeserializerModifier {
                 JsonNode value = tree.get(member);
                 if (value == null || value.isNull()) {
                     return context.reportInputMismatch(this, "the answer has no %s", member);
+                }
+            }
+            // Any other JSON type is the String coercions' to refuse.
+            for (String day : days) {
+                JsonNode value = tree.get(day);
+                if (value != null && value.isTextual() && Rfc3339.date(value.textValue()) == null) {
+                    return context.reportInputMismatch(this, "the answer's %s is not an RFC 3339 date", day);
                 }
             }
             for (Map.Entry<String, JsonNode> member : tree.properties()) {

@@ -831,6 +831,75 @@ class ConformanceTest {
     }
 
     /**
+     * A seen day a lookup hands back as the served string holds RFC 3339's full-date on a real day,
+     * or the call is a retried server error; a batch entry holding one is that address's failure. The
+     * spec types each {@code format: date} from 2026.11.23, and generation keeps it a String.
+     */
+    @Test
+    void aSeenDayIsAnRfc3339FullDateOrTheAnswerIsRefused() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<List<String>> members = List.of(
+                List.of("1.1.1.1", "/hosting", "last_seen"), List.of("1.1.1.1", "/web/0", "first_seen"),
+                List.of("1.1.1.1", "/web/0", "last_seen"), List.of("1.1.1.1", "/dns_resolver", "first_seen"),
+                List.of("1.1.1.1", "/bittorrent", "last_seen"), List.of("66.249.66.1", "/bot", "first_seen"),
+                List.of("66.249.66.1", "/bot", "last_seen"), List.of("asn/9009", "/prefixes/1", "first_seen"),
+                List.of("domain/example.com", "/dns/a/0", "last_seen"),
+                List.of("domain/example.com", "/dns/mx/0", "last_seen"),
+                List.of("domain/example.com", "/dns/ns/1", "last_seen"));
+        // Each spelling on one member, and two on every member, since each case waits out a retry.
+        List<String> malformed = List.of(" 2026-10-05", "2026-10-05 ", "2026-10-05\n", "2026-10-05T10:00:00Z",
+                "2026-02-30", "2026-11-31", "2026-10-5", "20261005", "2026-W41-1", "+12026-10-05", "2026-10-05Z",
+                "x", "tomorrow", "");
+        for (List<String> member : members) {
+            String path = member.get(0);
+            String whole = path.equals("66.249.66.1") ? lookupBody("paid-bot") : whole(path);
+            boolean every = member.equals(List.of("66.249.66.1", "/bot", "last_seen"));
+            for (String value : every ? malformed : List.of("2026-02-30", "x")) {
+                ObjectNode body = (ObjectNode) mapper.readTree(whole);
+                ((ObjectNode) body.at(member.get(1))).put(member.get(2), value);
+                String label = path + member.get(1) + "/" + member.get(2) + " = '" + value + "'";
+                StubHttpClient http = StubHttpClient.of(Map.of(path,
+                        StubHttpClient.Route.ok(mapper.writeValueAsString(body))));
+                try (InternetData client = clientOn(http).retries(1).build()) {
+                    InternetDataException err = assertThrows(InternetDataException.class, () -> {
+                        switch (path) {
+                            case "66.249.66.1" -> client.lookup(path);
+                            default -> call(client, path);
+                        }
+                    }, label);
+                    assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+                    assertEquals(200, err.statusCode().orElseThrow(), label);
+                    assertEquals(2, http.calls.size(), label + ": retried");
+                }
+            }
+        }
+
+        ObjectNode bad = (ObjectNode) mapper.readTree(lookupBody("paid-bot"));
+        ((ObjectNode) bad.get("bot")).put("last_seen", "2026-02-30");
+        String batch = "{\"results\": {\"66.249.66.1\": " + mapper.writeValueAsString(bad)
+                + ", \"1.1.1.1\": " + whole("1.1.1.1") + "}, \"errors\": {}}";
+        StubHttpClient http = StubHttpClient.of(Map.of()).answeringBatchWith(StubHttpClient.Route.ok(batch));
+        try (InternetData client = clientOn(http).retries(1).build()) {
+            Map<String, BatchResult> out = client.lookupBatch(List.of("66.249.66.1", "1.1.1.1"));
+            assertEquals(ErrorKind.SERVER_ERROR, out.get("66.249.66.1").error().orElseThrow().kind());
+            assertEquals("1.1.1.1", out.get("1.1.1.1").orElseThrow().ip());
+        }
+
+        // A real day reads as served, and the home page's last read, which may be empty, is no seen day.
+        ObjectNode address = (ObjectNode) mapper.readTree(lookupBody("paid-bot"));
+        ((ObjectNode) address.get("bot")).put("first_seen", "2024-02-29");
+        ObjectNode domain = (ObjectNode) mapper.readTree(whole("domain/example.com"));
+        ((ObjectNode) domain.get("web")).put("last_seen", "");
+        StubHttpClient served = StubHttpClient.of(Map.of(
+                "66.249.66.1", StubHttpClient.Route.ok(mapper.writeValueAsString(address)),
+                "domain/example.com", StubHttpClient.Route.ok(mapper.writeValueAsString(domain))));
+        try (InternetData client = clientOn(served).build()) {
+            assertEquals("2024-02-29", client.lookup("66.249.66.1").bot().orElseThrow().getFirstSeen());
+            assertEquals("", client.lookupDomain("example.com").web().orElseThrow().getLastSeen());
+        }
+    }
+
+    /**
      * A chunk the batch cannot read fails every address in it, retried; an entry it cannot read is
      * that address's failure alone, and the rest of the chunk is answered.
      */
@@ -873,6 +942,26 @@ class ConformanceTest {
             assertEquals(ErrorKind.SERVER_ERROR, err.kind(), "an unreadable error entry");
             assertEquals(200, err.statusCode().orElseThrow());
         }
+    }
+
+    /**
+     * Every member generation keeps a String where the spec says {@code format: date} has its day
+     * checked, and nothing else does: the table is {@code scripts/keep_types.py}'s list, which stops
+     * the generation once the spec no longer types a member it names.
+     */
+    @Test
+    void theCheckedDaysAreTheOnesGenerationKeepsAString() throws IOException {
+        Map<String, Set<String>> kept = new java.util.TreeMap<>();
+        Matcher m = Pattern.compile("\\(\"(\\w+)\", \"(\\w+)\"\\)")
+                .matcher(Files.readString(Path.of("scripts", "keep_types.py")));
+        while (m.find()) {
+            kept.computeIfAbsent(m.group(1), k -> new java.util.TreeSet<>()).add(m.group(2));
+        }
+        Map<String, Set<String>> checked = new java.util.TreeMap<>();
+        RequiredMembers.DAYS.forEach((model, days) ->
+                checked.put(model.getSimpleName(), new java.util.TreeSet<>(days)));
+        assertEquals(23, kept.values().stream().mapToInt(Set::size).sum(), "keep_types.py's list");
+        assertEquals(kept, checked);
     }
 
     /**
