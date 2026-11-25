@@ -160,7 +160,7 @@ public final class Result {
         return Boolean.TRUE.equals(raw.getIsBogon());
     }
 
-    /** In VPN IP: a VPN service's server. Paid plans. */
+    /** In VPN IP: a VPN service's server. On a paid plan. */
     public Optional<Boolean> isVpn() {
         return Optional.ofNullable(raw.getIsVpn());
     }
@@ -187,7 +187,7 @@ public final class Result {
         return Optional.ofNullable(raw.getIsMobproxy());
     }
 
-    /** Whether a public proxy listens on the address, or its traffic left from it. Paid plans. */
+    /** Whether a public proxy listens on the address, or its traffic left from it. On a paid plan. */
     public Optional<Boolean> isPubproxy() {
         return Optional.ofNullable(raw.getIsPubproxy());
     }
@@ -283,7 +283,7 @@ public final class Result {
 
     /**
      * Whose bot uses the address, what it does and whether its operator vouches for the address:
-     * empty, every member left out, when {@link #isBot()} is false. Paid plans.
+     * empty, every member left out, when {@link #isBot()} is false. On a paid plan.
      */
     public Optional<BotDetail> bot() {
         return Optional.ofNullable(raw.getBot());

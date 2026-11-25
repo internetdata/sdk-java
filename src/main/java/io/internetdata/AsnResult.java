@@ -56,12 +56,12 @@ public final class AsnResult {
         return raw.getDomain();
     }
 
-    /** The kind of network it runs, such as {@code hosting}. Paid plans. */
+    /** The kind of network it runs, such as {@code hosting}. On a paid plan. */
     public Optional<String> type() {
         return Optional.ofNullable(raw.getType());
     }
 
-    /** IPv4 addresses it announces. Paid plans. */
+    /** IPv4 addresses it announces. On a paid plan. */
     public Optional<Integer> numIps() {
         return Optional.ofNullable(raw.getNumIps());
     }
@@ -86,57 +86,57 @@ public final class AsnResult {
         return Optional.ofNullable(raw.getRpkiNotFound());
     }
 
-    /** Its ASN Whois record, every column, empty where the registry states nothing. Paid plans. */
+    /** Its ASN Whois record, every column, empty where the registry states nothing. On a paid plan. */
     public Optional<Map<String, String>> whois() {
         return Optional.ofNullable(raw.getWhois());
     }
 
-    /** What it announces, IPv4 then IPv6, each with its RPKI status. Paid plans. */
+    /** What it announces, IPv4 then IPv6, each with its RPKI status. On a paid plan. */
     public Optional<List<AsnPrefix>> prefixes() {
         return Optional.ofNullable(raw.getPrefixes());
     }
 
-    /** Its rank in ASN Extended by customer cone, 1 the largest; 0 for an AS seen in no AS path. Paid plans. */
+    /** Its rank in ASN Extended by customer cone, 1 the largest; 0 for an AS seen in no AS path. On a paid plan. */
     public Optional<Integer> rank() {
         return Optional.ofNullable(raw.getRank());
     }
 
-    /** Whether it is one of the transit-free networks at the top of the hierarchy. Paid plans. */
+    /** Whether it is one of the transit-free networks at the top of the hierarchy. On a paid plan. */
     public Optional<Boolean> tier1() {
         return Optional.ofNullable(raw.getTier1());
     }
 
-    /** How many AS numbers it gets transit from. Paid plans. */
+    /** How many AS numbers it gets transit from. On a paid plan. */
     public Optional<Integer> numUpstreams() {
         return Optional.ofNullable(raw.getNumUpstreams());
     }
 
-    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    /** Those AS numbers, ascending, up to 20000. On a paid plan. */
     public Optional<List<Integer>> upstreams() {
         return Optional.ofNullable(raw.getUpstreams());
     }
 
-    /** How many AS numbers it exchanges its own and its customers' routes with. Paid plans. */
+    /** How many AS numbers it exchanges its own and its customers' routes with. On a paid plan. */
     public Optional<Integer> numPeers() {
         return Optional.ofNullable(raw.getNumPeers());
     }
 
-    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    /** Those AS numbers, ascending, up to 20000. On a paid plan. */
     public Optional<List<Integer>> peers() {
         return Optional.ofNullable(raw.getPeers());
     }
 
-    /** How many AS numbers it provides transit to. Paid plans. */
+    /** How many AS numbers it provides transit to. On a paid plan. */
     public Optional<Integer> numDownstreams() {
         return Optional.ofNullable(raw.getNumDownstreams());
     }
 
-    /** Those AS numbers, ascending, up to 20000. Paid plans. */
+    /** Those AS numbers, ascending, up to 20000. On a paid plan. */
     public Optional<List<Integer>> downstreams() {
         return Optional.ofNullable(raw.getDownstreams());
     }
 
-    /** How many registered domains it hosts, and the 10 most popular. Paid plans. */
+    /** How many registered domains it hosts, and the 10 most popular. On a paid plan. */
     public Optional<AsnHostedDomains> hostedDomains() {
         return Optional.ofNullable(raw.getHostedDomains());
     }

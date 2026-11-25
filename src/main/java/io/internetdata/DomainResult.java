@@ -42,7 +42,7 @@ public final class DomainResult {
         return Boolean.TRUE.equals(raw.getIsRegistered());
     }
 
-    /** In Disposable Domain. Paid plans. */
+    /** In Disposable Domain. On a paid plan. */
     public Optional<Boolean> isDisposable() {
         return Optional.ofNullable(raw.getIsDisposable());
     }
@@ -67,45 +67,45 @@ public final class DomainResult {
         return Boolean.TRUE.equals(raw.getHasCname());
     }
 
-    /** The records themselves. Paid plans. */
+    /** The records themselves. On a paid plan. */
     public Optional<DomainDns> dns() {
         return Optional.ofNullable(raw.getDns());
     }
 
     /**
      * The network announcing each address in {@code dns.a} and then {@code dns.aaaa}, empty where it
-     * resolves to none. Paid plans.
+     * resolves to none. On a paid plan.
      */
     public Optional<List<DomainHost>> hosting() {
         return Optional.ofNullable(raw.getHosting());
     }
 
-    /** The other registered domains on its first IPv4 address, how many and the 10 most popular. Paid plans. */
+    /** The other registered domains on its first IPv4 address, how many and the 10 most popular. On a paid plan. */
     public Optional<CohostedDomains> cohostedDomains() {
         return Optional.ofNullable(raw.getCohostedDomains());
     }
 
-    /** The IP ranges of the organization behind the domain. Paid plans. */
+    /** The IP ranges of the organization behind the domain. On a paid plan. */
     public Optional<DomainIpRanges> ipRanges() {
         return Optional.ofNullable(raw.getIpRanges());
     }
 
-    /** Detail for {@link #isDisposable()}, present and empty when it is false. Paid plans. */
+    /** Detail for {@link #isDisposable()}, present and empty when it is false. On a paid plan. */
     public Optional<DisposableDetail> disposable() {
         return Optional.ofNullable(raw.getDisposable());
     }
 
-    /** What the crawl last read of its home page: its title, description and the hosts it links to. Paid plans. */
+    /** What the crawl last read of its home page: its title, description and the hosts it links to. On a paid plan. */
     public Optional<DomainWeb> web() {
         return Optional.ofNullable(raw.getWeb());
     }
 
-    /** The registered domains whose home page redirects to it, how many and the 10 most popular. Paid plans. */
+    /** The registered domains whose home page redirects to it, how many and the 10 most popular. On a paid plan. */
     public Optional<DomainRedirects> redirects() {
         return Optional.ofNullable(raw.getRedirects());
     }
 
-    /** The registered domains whose home page links to it, how many and the 10 most popular. Paid plans. */
+    /** The registered domains whose home page links to it, how many and the 10 most popular. On a paid plan. */
     public Optional<DomainBacklinks> backlinks() {
         return Optional.ofNullable(raw.getBacklinks());
     }
