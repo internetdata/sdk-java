@@ -43,7 +43,7 @@ Build the client once and keep it. It owns a connection pool, a cache and a thre
 
 ### With an API key
 
-Every paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting` and `is_cdn`, the detail behind each flag (`bot` names whose bot uses the address), the city and coordinates, whois and more. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
+A paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting` and `is_cdn`, the detail behind each flag (`bot` names whose bot uses the address), the city and coordinates, whois and more. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```java
 InternetData client = InternetData.create(System.getenv("INTERNETDATA_API_KEY"));
