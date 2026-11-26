@@ -25,7 +25,7 @@ Requires Java 17 or newer. HTTP is the JDK's own `java.net.http.HttpClient`, so 
 
 ## Usage
 
-**No API key needed to start.** Unlimited, the free plan, answers the Tor, relay, bot, anycast, carrier, satellite and service flags, `location` to the country, `asn`, `company`, `hostname` and the abuse email, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers the Tor, relay and anycast flags, `location` to the country, `asn`, `company`, `hostname` and the abuse email, with no daily or monthly cap, with a key or without one.
 
 ```java
 import io.internetdata.InternetData;
@@ -43,7 +43,7 @@ Build the client once and keep it. It owns a connection pool, a cache and a thre
 
 ### With an API key
 
-A paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting` and `is_cdn`, the detail behind each flag (`bot` names whose bot uses the address), the city and coordinates, whois and more. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
+A paid plan answers every field: `is_vpn`, the four proxy flags, `is_hosting`, `is_cdn`, the bot, carrier, satellite and service flags, the detail behind each flag (`bot` names whose bot uses the address), the city and coordinates, whois and more. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```java
 InternetData client = InternetData.create(System.getenv("INTERNETDATA_API_KEY"));
@@ -342,7 +342,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its trial is spent. A paid key's carries `capReached()`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null.
+Unlimited leaves out `isVpn()`, the four proxy flags, `isHosting()` and `isCdn()`, the bot, carrier, satellite and service flags, the detail behind every flag but Tor's and relay's, whois and `hostedDomains()`, and inside `location()` the city, region and coordinates; a free-plan key's answer carries `trialExpired()`, true once its trial is spent. A paid key's carries `capReached()`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. Every member a plan may leave out is an `Optional`, where empty means "not in your plan" rather than "checked, and no", and one inside `location()`, `asn()`, `company()` or `abuse()` is null. The exception is the bot, carrier, satellite and service flags (`isBot()`, `isCarrier()`, `isSatellite()`, `isSsh()`, `isSmtp()`, `isWeb()`, `isDnsResolver()` and `isBittorrent()`): they stay plain booleans, `false` on a plan without them, and `raw()` holds `null` there.
 
 ```java
 result.isVpn().orElse(false);         // when you only want the flag

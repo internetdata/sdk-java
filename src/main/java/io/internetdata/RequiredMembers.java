@@ -104,19 +104,18 @@ import java.util.Set;
 final class RequiredMembers extends BeanDeserializerModifier {
     /**
      * By the generated model that carries them: each schema's {@code required} list less the members
-     * it marks nullable, which a test holds to the models' own {@code @Nonnull} fields. An envelope
-     * needs only the member its call returns.
+     * it marks nullable and {@link #PLAN_MEMBERS}, which a test holds to the models' own
+     * {@code @Nonnull} fields. An envelope needs only the member its call returns.
      */
     static final Map<Class<?>, List<String>> MEMBERS = Map.ofEntries(
             Map.entry(LookupResponse.class, List.of("ip", "is_bogon", "is_tor", "is_relay", "is_anycast",
-                    "is_bot", "is_carrier", "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver",
-                    "is_bittorrent", "tor", "relay", "location", "asn", "company", "hostname", "abuse")),
+                    "tor", "relay", "location", "asn", "company", "hostname", "abuse")),
             Map.entry(WebDetail.class, List.of("port", "tls_ok", "session_ok", "status_code", "server", "location",
                     "title", "cert_subject_cn", "cert_subject_o", "cert_issuer_dn", "cert_browser_trusted",
                     "tls_version", "first_seen", "last_seen")),
             Map.entry(Location.class, List.of("continent", "continent_name", "country", "country_name", "timezone",
                     "currency_code", "currency_name", "currency_symbol", "flag_emoji", "flag_unicode")),
-            Map.entry(Asn.class, List.of("asn", "name", "domain", "type", "prefix", "country", "rpki_status")),
+            Map.entry(Asn.class, List.of("asn", "name", "domain", "prefix", "country", "rpki_status")),
             Map.entry(UserAgentVerdict.class, List.of("agent", "kind", "verdict")),
             Map.entry(Company.class, List.of("name", "domain")),
             Map.entry(AbuseContact.class, List.of("email")),
@@ -156,6 +155,18 @@ final class RequiredMembers extends BeanDeserializerModifier {
             Map.entry(DatabaseMetadataColumn.class, List.of("name", "type")),
             Map.entry(DatabaseChecksums.class, List.of("md5", "sha1", "sha256", "sha512")),
             Map.entry(Download.class, List.of("dataset_id", "format", "outcome", "sample", "open", "created")));
+
+    /**
+     * The members a plan may leave out, by model: the spec listed each as required through 2026.11.25
+     * and no longer does, since a plan that lacks one answers without it (Unlimited's, for the eight
+     * flags and the AS's {@code type}). {@code scripts/keep_types.py} keeps each required in the
+     * models, so no generated type moves before a major; the decoder accepts an answer without one
+     * and still refuses one that carries it as null or as the wrong type.
+     */
+    static final Map<Class<?>, List<String>> PLAN_MEMBERS = Map.of(
+            LookupResponse.class, List.of("is_bot", "is_carrier", "is_satellite", "is_ssh", "is_smtp", "is_web",
+                    "is_dns_resolver", "is_bittorrent"),
+            Asn.class, List.of("type"));
 
     /**
      * The lookup answers, whose optional lists and maps a plan leaves out. The generator starts each
@@ -234,14 +245,15 @@ final class RequiredMembers extends BeanDeserializerModifier {
             }
         }
         List<String> members = MEMBERS.getOrDefault(model, List.of());
+        List<String> planMembers = PLAN_MEMBERS.getOrDefault(model, List.of());
         Set<String> leftOut = new HashSet<>();
         if (ANSWERS.contains(model)) {
             leftOut.addAll(lists);
             leftOut.addAll(maps);
             leftOut.removeAll(members);
         }
-        return new Requiring(deserializer, members, Set.copyOf(lists), Set.copyOf(maps), OBJECT_ROWS.get(model),
-                Set.copyOf(leftOut), DAYS.getOrDefault(model, Set.of()));
+        return new Requiring(deserializer, members, planMembers, Set.copyOf(lists), Set.copyOf(maps),
+                OBJECT_ROWS.get(model), Set.copyOf(leftOut), DAYS.getOrDefault(model, Set.of()));
     }
 
     /**
@@ -259,16 +271,18 @@ final class RequiredMembers extends BeanDeserializerModifier {
 
     private static final class Requiring extends DelegatingDeserializer {
         private final List<String> members;
+        private final List<String> planMembers;
         private final Set<String> lists;
         private final Set<String> maps;
         private final String objectRows;
         private final Set<String> leftOut;
         private final Set<String> days;
 
-        Requiring(JsonDeserializer<?> delegate, List<String> members, Set<String> lists, Set<String> maps,
-                String objectRows, Set<String> leftOut, Set<String> days) {
+        Requiring(JsonDeserializer<?> delegate, List<String> members, List<String> planMembers, Set<String> lists,
+                Set<String> maps, String objectRows, Set<String> leftOut, Set<String> days) {
             super(delegate);
             this.members = members;
+            this.planMembers = planMembers;
             this.lists = lists;
             this.maps = maps;
             this.objectRows = objectRows;
@@ -278,7 +292,7 @@ final class RequiredMembers extends BeanDeserializerModifier {
 
         @Override
         protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> delegate) {
-            return new Requiring(delegate, members, lists, maps, objectRows, leftOut, days);
+            return new Requiring(delegate, members, planMembers, lists, maps, objectRows, leftOut, days);
         }
 
         @Override
@@ -291,6 +305,11 @@ final class RequiredMembers extends BeanDeserializerModifier {
                 JsonNode value = tree.get(member);
                 if (value == null || value.isNull()) {
                     return context.reportInputMismatch(this, "the answer has no %s", member);
+                }
+            }
+            for (String member : planMembers) {
+                if (tree.has(member) && tree.get(member).isNull()) {
+                    return context.reportInputMismatch(this, "the answer's %s is null", member);
                 }
             }
             // Any other JSON type is the String coercions' to refuse.

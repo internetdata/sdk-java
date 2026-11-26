@@ -34,7 +34,9 @@ import java.util.Optional;
  * could not check", so empty and {@code false} are genuinely different answers: empty is "not in
  * your plan", {@code false} is "checked, and no". Call {@code orElse(false)} on the Optional
  * for the common case where you only care whether the address is flagged. A member every plan
- * answers is returned as it is.
+ * answers is returned as it is. The bot, carrier, satellite and service flags are the exception:
+ * they are plain booleans, false on a plan that leaves them out, and {@link #raw()} tells that from
+ * a false answer, since its getter is null there.
  *
  * <p>A detail object that is present but empty means the flag above it is false, as an empty
  * {@link #web()} does. A populated one always carries every one of its keys. Inside the objects
@@ -202,8 +204,8 @@ public final class Result {
 
     /**
      * In Bot IP: an automated client's address, such as a search engine's or an AI company's crawler,
-     * an uptime monitor, an internet scanner or a webhook sender. Every plan includes this; {@link
-     * #bot()} says whose.
+     * an uptime monitor, an internet scanner or a webhook sender. On a paid plan or the trial, false
+     * on a plan without it; {@link #bot()} says whose.
      */
     public boolean isBot() {
         return Boolean.TRUE.equals(raw.getIsBot());
@@ -213,30 +215,57 @@ public final class Result {
         return Boolean.TRUE.equals(raw.getIsAnycast());
     }
 
+    /**
+     * In Carrier IP: a mobile carrier's address space. On a paid plan or the trial, false on a plan
+     * without it.
+     */
     public boolean isCarrier() {
         return Boolean.TRUE.equals(raw.getIsCarrier());
     }
 
+    /**
+     * In Satellite IP: a satellite operator's address space. On a paid plan or the trial, false on a
+     * plan without it.
+     */
     public boolean isSatellite() {
         return Boolean.TRUE.equals(raw.getIsSatellite());
     }
 
+    /**
+     * In SSH IP: an SSH server answered here. On a paid plan or the trial, false on a plan without it.
+     */
     public boolean isSsh() {
         return Boolean.TRUE.equals(raw.getIsSsh());
     }
 
+    /**
+     * In SMTP IP: a mail server answered here. On a paid plan or the trial, false on a plan without
+     * it.
+     */
     public boolean isSmtp() {
         return Boolean.TRUE.equals(raw.getIsSmtp());
     }
 
+    /**
+     * In Web IP: a web server answered here on port 80 or 443. On a paid plan or the trial, false on a
+     * plan without it.
+     */
     public boolean isWeb() {
         return Boolean.TRUE.equals(raw.getIsWeb());
     }
 
+    /**
+     * In DNS Resolver IP: an open DNS resolver answered here. On a paid plan or the trial, false on a
+     * plan without it.
+     */
     public boolean isDnsResolver() {
         return Boolean.TRUE.equals(raw.getIsDnsResolver());
     }
 
+    /**
+     * In BitTorrent IP: a BitTorrent client was seen here in the last 90 days. On a paid plan or the
+     * trial, false on a plan without it.
+     */
     public boolean isBittorrent() {
         return Boolean.TRUE.equals(raw.getIsBittorrent());
     }

@@ -46,9 +46,8 @@ final class Staging {
     static final String PROBE = "146.70.116.130";
 
     /** The members every plan answers, which are never the subject of an absent-versus-false question. */
-    static final Set<String> EVERY_PLAN = Set.of("ip", "is_bogon", "is_tor", "is_relay", "is_anycast",
-            "is_carrier", "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent",
-            "tor", "relay", "location", "asn", "company", "hostname", "abuse");
+    static final Set<String> EVERY_PLAN = Set.of("ip", "is_bogon", "is_tor", "is_relay", "is_anycast", "tor",
+            "relay", "location", "asn", "company", "hostname", "abuse");
 
     /** The wire name of every member a plan may leave out, mapped to the accessor the client puts it on. */
     static final Map<String, Function<Result, Optional<?>>> ACCESSORS = accessors();

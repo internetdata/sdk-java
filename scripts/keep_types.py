@@ -1,7 +1,8 @@
 """Writes the copy of the pinned spec the generator reads, with the edits that keep a public type.
 
 A re-pin that would move a member's Java type (a `format: date` added to a string the client has
-always returned as a String) is generated from this copy, so the type moves only at a major. The
+always returned as a String) or its requirement (a member the models have always marked required,
+which the spec lets a plan leave out) is generated from this copy, so it moves only at a major. The
 pin itself stays byte-equal to the published spec. Each edit targets one member of one schema and
 fails when it matches nothing, so a spec that drops or moves the member stops the generation rather
 than leaving a dead edit behind.
@@ -41,6 +42,22 @@ STRING_DAYS = [
 ]
 
 
+# Members the spec lists as required through 2026.11.25 and no longer from 2026.11.26, since a plan
+# without them leaves them out. The models keep them required, so RequiredMembers.PLAN_MEMBERS
+# lists them: the decoder accepts an answer without one, and a test holds the two tables together.
+PLAN_MEMBERS = [
+    ("LookupResponse", "is_bot"),
+    ("LookupResponse", "is_carrier"),
+    ("LookupResponse", "is_satellite"),
+    ("LookupResponse", "is_ssh"),
+    ("LookupResponse", "is_smtp"),
+    ("LookupResponse", "is_web"),
+    ("LookupResponse", "is_dns_resolver"),
+    ("LookupResponse", "is_bittorrent"),
+    ("Asn", "type"),
+]
+
+
 def block(lines, start, indent):
     """The index past the last line of the block opened at `start`, whose children sit deeper than `indent`."""
     end = start + 1
@@ -59,7 +76,8 @@ def find(lines, lo, hi, pattern):
     return None
 
 
-def strip_date(lines, schema, member):
+def member_at(lines, schema, member):
+    """The schema's start and the index of the line opening its property `member`."""
     schemas = find(lines, 0, len(lines), r"  schemas:")
     if schemas is None:
         sys.exit("keep_types: the spec has no components.schemas")
@@ -72,10 +90,29 @@ def strip_date(lines, schema, member):
     prop = find(lines, props + 1, block(lines, props, 6), r"        " + re.escape(member) + r":")
     if prop is None:
         sys.exit(f"keep_types: {schema} has no {member}")
+    return at, prop
+
+
+def strip_date(lines, schema, member):
+    _, prop = member_at(lines, schema, member)
     fmt = find(lines, prop + 1, block(lines, prop, 8), r"          format: date")
     if fmt is None:
         sys.exit(f"keep_types: {schema}.{member} is no longer format: date; drop its edit")
     del lines[fmt]
+
+
+def restore_required(lines, schema, member):
+    at, _ = member_at(lines, schema, member)
+    end = block(lines, at, 4)
+    required = find(lines, at + 1, end, r"      required:")
+    if required is None:
+        sys.exit(f"keep_types: {schema} has no required list")
+    last = required
+    while last + 1 < end and re.fullmatch(r"        - .*", lines[last + 1]):
+        last += 1
+        if lines[last] == f"        - {member}":
+            sys.exit(f"keep_types: {schema}.{member} is required again; drop its edit")
+    lines.insert(last + 1, f"        - {member}")
 
 
 def main():
@@ -85,6 +122,8 @@ def main():
         lines = f.read().split("\n")
     for schema, member in STRING_DAYS:
         strip_date(lines, schema, member)
+    for schema, member in PLAN_MEMBERS:
+        restore_required(lines, schema, member)
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 

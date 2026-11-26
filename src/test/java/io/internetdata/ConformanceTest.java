@@ -72,6 +72,11 @@ class ConformanceTest {
         REFUSED.put("api/v2/database/metadata", client -> client.database().metadata("bogon_ip_v1"));
     }
 
+    // Held at their plain boolean type until the next major, so a plan that leaves one out reads false
+    // where the corpus says absent. No other member is read this way.
+    private static final List<String> HELD_FLAGS = List.of("is_bot", "is_carrier", "is_satellite", "is_ssh",
+            "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent");
+
     @BeforeAll
     static void loadCorpus() throws IOException {
         data = MAPPER.readTree(Path.of("testdata", "testdata.json").toFile());
@@ -216,8 +221,13 @@ class ConformanceTest {
                             name + ": " + object.asText() + (shouldBe ? " should" : " should not") + " be empty");
                 }
                 for (JsonNode absent : expect.get("absent")) {
-                    assertTrue(member(answer, absent.asText()).isEmpty(),
-                            name + ": " + absent.asText() + " must be ABSENT, not false");
+                    if (call.equals("lookup") && HELD_FLAGS.contains(absent.asText())) {
+                        assertEquals(Optional.of(false), member(answer, absent.asText()),
+                                name + ": " + absent.asText() + " is a plain boolean, so absent reads false");
+                    } else {
+                        assertTrue(member(answer, absent.asText()).isEmpty(),
+                                name + ": " + absent.asText() + " must be ABSENT, not false");
+                    }
                 }
                 if (expect.has("absentIn")) {
                     for (Map.Entry<String, JsonNode> within : expect.get("absentIn").properties()) {
@@ -564,13 +574,12 @@ class ConformanceTest {
             call(decodes, path);
         }
         List<List<String>> cases = List.of(
-                List.of("1.1.1.1", "", "ip", "is_bogon", "is_tor", "is_relay", "is_bot", "is_anycast", "is_carrier",
-                        "is_satellite", "is_ssh", "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent", "tor",
-                        "relay", "location", "asn", "company", "hostname", "abuse"),
+                List.of("1.1.1.1", "", "ip", "is_bogon", "is_tor", "is_relay", "is_anycast", "tor", "relay",
+                        "location", "asn", "company", "hostname", "abuse"),
                 List.of("myip", "", "ip", "is_bogon", "location"),
                 List.of("1.1.1.1", "/location", "continent", "continent_name", "country", "country_name", "timezone",
                         "currency_code", "currency_name", "currency_symbol", "flag_emoji", "flag_unicode"),
-                List.of("1.1.1.1", "/asn", "asn", "name", "domain", "type", "prefix", "country", "rpki_status"),
+                List.of("1.1.1.1", "/asn", "asn", "name", "domain", "prefix", "country", "rpki_status"),
                 List.of("1.1.1.1", "/company", "name", "domain"),
                 List.of("1.1.1.1", "/abuse", "email"),
                 List.of("1.1.1.1", "/whois", "id", "name", "org", "country", "status", "source", "domain",
@@ -597,7 +606,7 @@ class ConformanceTest {
                 List.of("domain/example.com", "/ip_ranges", "domain", "redirects_to", "total", "ipv4", "ranges"),
                 List.of("domain/example.com", "/ip_ranges/ranges/0", "range", "name", "country"),
                 List.of("domain/example.com", "/hosting/0", "ip", "asn"),
-                List.of("domain/example.com", "/hosting/0/asn", "asn", "name", "domain", "type", "prefix", "country",
+                List.of("domain/example.com", "/hosting/0/asn", "asn", "name", "domain", "prefix", "country",
                         "rpki_status"),
                 List.of("domain/example.com", "/cohosted_domains", "ip", "total", "domains"),
                 List.of("domain/example.com", "/web", "url", "title", "description", "last_seen", "links"),
@@ -637,6 +646,69 @@ class ConformanceTest {
                 }
             }
         }
+    }
+
+    /**
+     * The eight flags and an AS's type are what a plan leaves out: the answer still reads, a flag as
+     * false through its plain boolean and as null through {@code raw()}, which is how a flag a plan
+     * lacks differs from a false one. One sent as null or as another JSON type is still refused, as
+     * when the spec required it, and a batch entry is held to the same.
+     */
+    @Test
+    void aMemberAPlanLeavesOutIsReadAbsentAndStillRefusedAsNullOrOfTheWrongType() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode lean = (ObjectNode) mapper.readTree(whole("1.1.1.1"));
+        HELD_FLAGS.forEach(lean::remove);
+        ((ObjectNode) lean.get("asn")).remove("type");
+        StubHttpClient served = StubHttpClient.of(Map.of("1.1.1.1", StubHttpClient.Route.ok(lean.toString()),
+                "domain/example.com", StubHttpClient.Route.ok(domainWithoutAnAsnType(mapper))));
+        try (InternetData client = clientOn(served).build()) {
+            Result r = client.lookup("1.1.1.1");
+            JsonNode raw = MAPPER.valueToTree(r.raw());
+            for (String flag : HELD_FLAGS) {
+                assertEquals(Optional.of(false), member(r, flag), flag + " reads false");
+                assertFalse(raw.path(flag).isBoolean(), flag + " is null in raw(), not false");
+            }
+            assertEquals(null, r.asn().getType());
+            assertEquals(lean.get("asn").get("name").asText(), r.asn().getName());
+            assertEquals(null, client.lookupDomain("example.com").hosting().orElseThrow().get(0).getAsn().getType());
+        }
+
+        List<List<Object>> refused = new ArrayList<>();
+        for (String flag : HELD_FLAGS) {
+            refused.add(Arrays.asList("", flag, null));
+            refused.add(List.of("", flag, "false"));
+            refused.add(List.of("", flag, 1));
+        }
+        refused.add(Arrays.asList("/asn", "type", null));
+        refused.add(List.of("/asn", "type", 5));
+        for (List<Object> each : refused) {
+            ObjectNode body = (ObjectNode) mapper.readTree(whole("1.1.1.1"));
+            ((ObjectNode) body.at((String) each.get(0))).set((String) each.get(1), mapper.valueToTree(each.get(2)));
+            String label = each.get(0) + " " + each.get(1) + " = " + each.get(2);
+            StubHttpClient http = StubHttpClient.of(Map.of("1.1.1.1", StubHttpClient.Route.ok(body.toString())));
+            InternetData client = clientOn(http).retries(1).build();
+            InternetDataException err = assertThrows(InternetDataException.class, () -> client.lookup("1.1.1.1"), label);
+            assertEquals(ErrorKind.SERVER_ERROR, err.kind(), label);
+            assertEquals(200, err.statusCode().orElseThrow(), label);
+            assertEquals(2, http.calls.size(), label + ": retried");
+
+            ObjectNode refusedEntry = (ObjectNode) mapper.readTree("{\"results\": {\"8.8.8.8\": " + body
+                    + ", \"1.1.1.1\": " + lean + "}, \"errors\": {}}");
+            StubHttpClient batch = StubHttpClient.of(Map.of()).answeringBatchWith(
+                    StubHttpClient.Route.ok(refusedEntry.toString()));
+            try (InternetData inBatch = clientOn(batch).retries(0).build()) {
+                Map<String, BatchResult> out = inBatch.lookupBatch(List.of("8.8.8.8", "1.1.1.1"));
+                assertEquals(ErrorKind.SERVER_ERROR, out.get("8.8.8.8").error().orElseThrow().kind(), label);
+                assertFalse(out.get("1.1.1.1").orElseThrow().isBot(), label + ": the entry without them reads");
+            }
+        }
+    }
+
+    private static String domainWithoutAnAsnType(ObjectMapper mapper) throws IOException {
+        ObjectNode domain = (ObjectNode) mapper.readTree(whole("domain/example.com"));
+        ((ObjectNode) domain.at("/hosting/0/asn")).remove("type");
+        return domain.toString();
     }
 
     /**
@@ -951,12 +1023,7 @@ class ConformanceTest {
      */
     @Test
     void theCheckedDaysAreTheOnesGenerationKeepsAString() throws IOException {
-        Map<String, Set<String>> kept = new java.util.TreeMap<>();
-        Matcher m = Pattern.compile("\\(\"(\\w+)\", \"(\\w+)\"\\)")
-                .matcher(Files.readString(Path.of("scripts", "keep_types.py")));
-        while (m.find()) {
-            kept.computeIfAbsent(m.group(1), k -> new java.util.TreeSet<>()).add(m.group(2));
-        }
+        Map<String, Set<String>> kept = keptMembers("STRING_DAYS");
         Map<String, Set<String>> checked = new java.util.TreeMap<>();
         RequiredMembers.DAYS.forEach((model, days) ->
                 checked.put(model.getSimpleName(), new java.util.TreeSet<>(days)));
@@ -965,9 +1032,38 @@ class ConformanceTest {
     }
 
     /**
-     * The table is the spec's {@code required} lists less what each marks nullable, which the
-     * generator writes as the models' {@code @Nonnull} fields, so a re-pin that adds one turns this
-     * red until the table has it. Every model an answer reaches must be in the table.
+     * Every member generation keeps required, which the spec no longer lists, is one the decoder
+     * accepts left out: the table is {@code scripts/keep_types.py}'s list, which stops the
+     * generation once the spec lists a member again.
+     */
+    @Test
+    void theMembersAPlanMayLeaveOutAreTheOnesGenerationKeepsRequired() throws IOException {
+        Map<String, Set<String>> kept = keptMembers("PLAN_MEMBERS");
+        Map<String, Set<String>> accepted = new java.util.TreeMap<>();
+        RequiredMembers.PLAN_MEMBERS.forEach((model, members) ->
+                accepted.put(model.getSimpleName(), new java.util.TreeSet<>(members)));
+        assertEquals(9, kept.values().stream().mapToInt(Set::size).sum(), "keep_types.py's list");
+        assertEquals(kept, accepted);
+        assertEquals(new java.util.TreeSet<>(HELD_FLAGS), kept.get("LookupResponse"));
+    }
+
+    // The (schema, member) pairs of one list in keep_types.py, by schema.
+    private static Map<String, Set<String>> keptMembers(String list) throws IOException {
+        String script = Files.readString(Path.of("scripts", "keep_types.py"));
+        String body = script.substring(script.indexOf(list + " = ["), script.indexOf("\n]", script.indexOf(list + " = [")));
+        Map<String, Set<String>> kept = new java.util.TreeMap<>();
+        Matcher m = Pattern.compile("\\(\"(\\w+)\", \"(\\w+)\"\\)").matcher(body);
+        while (m.find()) {
+            kept.computeIfAbsent(m.group(1), k -> new java.util.TreeSet<>()).add(m.group(2));
+        }
+        return kept;
+    }
+
+    /**
+     * The table, with the members a plan may leave out, is the spec's {@code required} lists less
+     * what each marks nullable, which the generator writes as the models' {@code @Nonnull} fields,
+     * so a re-pin that adds one turns this red until the table has it. Every model an answer
+     * reaches must be in the table.
      */
     @Test
     void theRequiredMembersAreTheModelsNonnullOnes() throws ReflectiveOperationException {
@@ -1010,7 +1106,9 @@ class ConformanceTest {
             }
             List<String> table = RequiredMembers.MEMBERS.get(model);
             assertTrue(table != null, model.getSimpleName() + " is not in the table");
-            assertEquals(nonnull, new java.util.TreeSet<>(table), model.getSimpleName());
+            Set<String> held = new java.util.TreeSet<>(table);
+            held.addAll(RequiredMembers.PLAN_MEMBERS.getOrDefault(model, List.of()));
+            assertEquals(nonnull, held, model.getSimpleName());
         }
         reached.removeAll(unchecked);
         assertEquals(RequiredMembers.MEMBERS.keySet(), reached);
