@@ -2,6 +2,29 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.1.1 are described by their release commits.
 
+## 3.0.0 - 2026-11-26
+
+### Breaking changes
+
+- Read a tier, standing, license type, format or outcome the API adds ([`a66eaca`](https://github.com/internetdata/sdk-java/commit/a66eacafdea7d5c84d5ef09313a419100efffe48))
+- Re-pin the spec to 2026.11.21: is_bot on every answer, and a paid answer's bot ([`16999ea`](https://github.com/internetdata/sdk-java/commit/16999ea4dcf3d984efae52ae5bd8665a3b591d79))
+
+### Features
+
+- Read a paid domain answer's hosting, co-hosted domains, home page, redirects and backlinks ([`24dbbec`](https://github.com/internetdata/sdk-java/commit/24dbbec2e92843060693d3fe558ba4d0bcf4153e))
+- Match a block condition against a list member when any element matches ([`f6321af`](https://github.com/internetdata/sdk-java/commit/f6321afff266265223a1cc35c06c4921988ba072))
+- Name the library in every request's User-Agent ([`5f8036b`](https://github.com/internetdata/sdk-java/commit/5f8036bff1b36840d1ea7333ef70ff1d10af3a56))
+
+### Fixes
+
+- Read a keyless answer without the bot, carrier, satellite and service flags ([`4ad26c1`](https://github.com/internetdata/sdk-java/commit/4ad26c104be859d9e83fff39b0ede8cdcb18af45))
+- Re-pin the spec to 2026.11.23: refuse a seen day that is no date ([`0a04035`](https://github.com/internetdata/sdk-java/commit/0a0403504173d1b3444324f70c2b3cbb1b1cd90c))
+- Cache a spent trial's or a reached cap's answer for a minute at most ([`7fa6ba7`](https://github.com/internetdata/sdk-java/commit/7fa6ba780b22bb392102a15012bdda16ba85cfb2))
+- Re-pin the spec to 2026.11.17 as republished: KEY_OVER_HTTP on the account 403 ([`278bfa4`](https://github.com/internetdata/sdk-java/commit/278bfa48a4f518255dd52bb47aadb456ce900d6c))
+- Re-pin the spec to 2026.11.20: the free trial without a count or period ([`d6cf5a2`](https://github.com/internetdata/sdk-java/commit/d6cf5a288803037fc47a56250e0f0c6aa9436cb1))
+- Re-pin the spec to 2026.11.22 ([`025baf3`](https://github.com/internetdata/sdk-java/commit/025baf31c1c1567b3cb13d2fb56fe2439b917e9a))
+- Re-pin the spec to 2026.11.25: a field is on a paid plan or the trial ([`278a770`](https://github.com/internetdata/sdk-java/commit/278a7700097abefd3b876afe5a7a822507924cb8))
+
 ## 2.10.0 - 2026-11-17
 
 ### Features
