@@ -301,8 +301,8 @@ public final class InternetData implements AutoCloseable {
      *
      * <p>Usage counts against the ALLOWANCE WINDOW - on a paid plan the anniversary of the
      * subscription, not the calendar month and not the billing period, and on the free plan its
-     * trial - and it is the same number a lookup is gated on. It can lag by a few seconds, because
-     * requests are counted in memory and flushed in aggregate.
+     * trial's window - and it is the same number a lookup is gated on. It can lag by a few seconds,
+     * because requests are counted in memory and flushed in aggregate.
      *
      * <p>Deliberately NOT cached: the whole point is what has been spent, and a cached answer is a
      * wrong one within seconds of the next request.
@@ -706,10 +706,10 @@ public final class InternetData implements AutoCloseable {
     }
 
     // How long a cached answer lives: the client's TTL, but a minute at most for one whose
-    // trial_expired or cap_reached is true. That answer is the reduced one until a new UTC month
-    // renews the trial or the cap is raised, so a whole TTL would keep serving it after either; it stays
-    // cached for that minute, so a busy address does not go to the API on every repeat. An answer
-    // that replaces another takes its own life, and reading one never extends it.
+    // trial_expired or cap_reached is true. That answer is the reduced one until an upgrade, a raised
+    // cap or a paid plan's new window ends it, so a whole TTL would keep serving it after any of them;
+    // it stays cached for that minute, so a busy address does not go to the API on every repeat. An
+    // answer that replaces another takes its own life, and reading one never extends it.
     private static final class AnswerLife implements Expiry<String, Result> {
         private final long ttl;
 
@@ -817,7 +817,7 @@ public final class InternetData implements AutoCloseable {
         /**
          * How long an answer stays fresh. Default 1 hour. An answer whose {@code trial_expired} or
          * {@code cap_reached} is true is kept a minute at most, or this long when it is shorter:
-         * it is the reduced answer only until the trial resets or the cap is raised.
+         * it is the reduced answer only until an upgrade, a raised cap or a paid plan's new window ends it.
          */
         public Builder cacheTtl(Duration cacheTtl) {
             this.cacheTtl = Objects.requireNonNull(cacheTtl, "cacheTtl");
