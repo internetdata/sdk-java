@@ -76,6 +76,8 @@ class ConformanceTest {
     // where the corpus says absent. No other member is read this way.
     private static final List<String> HELD_FLAGS = List.of("is_bot", "is_carrier", "is_satellite", "is_ssh",
             "is_smtp", "is_web", "is_dns_resolver", "is_bittorrent");
+    // The AS's type is held the same way: its getter returns null where the answer leaves it out.
+    private static final List<String> HELD_IN = List.of("asn.type");
 
     @BeforeAll
     static void loadCorpus() throws IOException {
@@ -233,8 +235,14 @@ class ConformanceTest {
                     for (Map.Entry<String, JsonNode> within : expect.get("absentIn").properties()) {
                         JsonNode object = MAPPER.valueToTree(member(answer, within.getKey()).orElseThrow());
                         for (JsonNode absent : within.getValue()) {
-                            assertFalse(object.has(absent.asText()), name + ": " + within.getKey() + "."
-                                    + absent.asText() + " must be ABSENT, not " + object.get(absent.asText()));
+                            String member = within.getKey() + "." + absent.asText();
+                            if (HELD_IN.contains(member)) {
+                                assertTrue(object.path(absent.asText()).isNull(),
+                                        name + ": " + member + " is null, not a value");
+                            } else {
+                                assertFalse(object.has(absent.asText()), name + ": " + member
+                                        + " must be ABSENT, not " + object.get(absent.asText()));
+                            }
                         }
                     }
                 }
